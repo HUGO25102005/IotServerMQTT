@@ -1,0 +1,13 @@
+El proiyecto del lado del servidor debe de ser un backend 
+con las sogueintes tecnologias
+- js
+- mosquitto (para la comunicacion mqtt)
+- node.js 
+- Express para la comunicacion de api
+- mysql para la base de datos
+
+
+se tiene que crear el proyecto con la arquitectura adecuad.
+ten en cuenta que este proyecto nos enfocaremos en el lado del cliente servior
+ya que otro integrante del equipio se enfocara en el lado de los sensores y la 
+plana esp32, yo me enfocare unicamente en el lado del servidor con las tecnologias anterirores

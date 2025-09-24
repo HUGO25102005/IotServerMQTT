@@ -1,0 +1,109 @@
+===========================================
+Guía de Gestión de Tópicos MQTT
+Proyecto: Estación de Bicicletas
+===========================================
+
+-------------------------------------------
+1. Envío desde el Sensor (ESP32 / Cerrojos)
+-------------------------------------------
+
+Identificación:
+- stationId: Identificador único de la estación. Ejemplo: st-colima-0001
+- deviceId: Identificador único del ESP32 controlador. Ejemplo: ctrl-07f3a2
+- lockId: Identificador de cada cerrojo. Ejemplo: lock-1, lock-2, ...
+
+Tópicos publicados por el sensor:
+- stations/{stationId}/controller/{deviceId}/telemetry
+- stations/{stationId}/controller/{deviceId}/locks/{lockId}/telemetry
+- stations/{stationId}/controller/{deviceId}/locks/{lockId}/state
+- stations/{stationId}/controller/{deviceId}/locks/{lockId}/event
+- stations/{stationId}/controller/{deviceId}/status
+- stations/{stationId}/controller/{deviceId}/$birth
+- stations/{stationId}/controller/{deviceId}/$will
+- stations/{stationId}/controller/{deviceId}/config   (retained)
+
+Ejemplos de payloads:
+
+Telemetry (datos periódicos del cerrojo):
+{
+  "ts": 1732473423123,
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "lockId": "lock-1",
+  "type": "lock",
+  "battery": 86,
+  "rssi": -63,
+  "state": "locked",
+  "fw": "1.2.3",
+  "seq": 1042
+}
+
+Event (eventos importantes):
+{
+  "ts": 1732473460001,
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "lockId": "lock-1",
+  "event": "tamper_detected",
+  "details": { "vibration": 0.87 }
+}
+
+State (respuesta a un comando recibido):
+{
+  "ts": 1732473502120,
+  "reqId": "7c1b3c",
+  "result": "ok",
+  "state": "unlocked",
+  "error": null
+}
+
+Status (heartbeat y conexión):
+- $birth → publicado al conectarse (status=online, retained)
+- $will  → enviado automáticamente si se desconecta (status=offline)
+
+Config (descubrimiento del dispositivo, retained):
+{
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "locks": [
+    { "lockId": "lock-1", "position": "A1" },
+    { "lockId": "lock-2", "position": "A2" }
+  ],
+  "fw": "1.2.3",
+  "hw": "rev-B"
+}
+
+
+-------------------------------------------
+2. Recepción y Gestión en el Backend
+-------------------------------------------
+
+Suscripciones recomendadas (wildcards):
+- stations/+/controller/+/locks/+/telemetry
+- stations/+/controller/+/locks/+/event
+- stations/+/controller/+/locks/+/state
+- stations/+/controller/+/status
+- stations/+/controller/+/config
+
+Publicación de comandos desde el backend:
+- stations/{stationId}/controller/{deviceId}/locks/{lockId}/command/set
+
+Ejemplo de comando (abrir cerrojo):
+{
+  "ts": 1732473501123,
+  "cmd": "unlock",
+  "reqId": "7c1b3c",
+  "timeoutMs": 5000
+}
+
+El dispositivo debe responder en .../state con el mismo reqId.
+
+
+-------------------------------------------
+3. Reglas de Oro
+-------------------------------------------
+1. Telemetría y eventos → los manda el dispositivo
+2. Comandos → los manda el backend
+3. Respuestas (state) → las manda el dispositivo
+4. Cada tópico incluye stationId, deviceId y lockId → siempre sabremos quién habló
+5. Tópicos config y status deben ser retained → el backend siempre conoce la última información

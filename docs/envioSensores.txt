@@ -1,0 +1,109 @@
+===========================================
+Guía de Envío de Datos desde Sensores (ESP32)
+Proyecto: Estación de Bicicletas
+===========================================
+
+-------------------------------------------
+1. Identificación obligatoria en cada mensaje
+-------------------------------------------
+Cada payload publicado debe incluir:
+- stationId: ID único de la estación. Ejemplo: "st-colima-0001"
+- deviceId: ID único del ESP32 controlador. Ejemplo: "ctrl-07f3a2"
+- lockId: Identificador del cerrojo. Ejemplo: "lock-1", "lock-2"
+
+Esto permite que el backend sepa exactamente de qué estación,
+qué controlador y qué cerrojo proviene cada dato.
+
+-------------------------------------------
+2. Tópicos a utilizar
+-------------------------------------------
+El ESP32 debe publicar en los siguientes tópicos:
+
+- Telemetría general del controlador:
+  stations/{stationId}/controller/{deviceId}/telemetry
+
+- Telemetría de cada cerrojo:
+  stations/{stationId}/controller/{deviceId}/locks/{lockId}/telemetry
+
+- Estado de cada cerrojo (respuesta a comandos):
+  stations/{stationId}/controller/{deviceId}/locks/{lockId}/state
+
+- Eventos importantes de cada cerrojo:
+  stations/{stationId}/controller/{deviceId}/locks/{lockId}/event
+
+- Estado general del controlador:
+  stations/{stationId}/controller/{deviceId}/status
+
+- Mensajes de conexión (birth/will):
+  stations/{stationId}/controller/{deviceId}/$birth
+  stations/{stationId}/controller/{deviceId}/$will
+
+- Configuración inicial (retenida para descubrimiento):
+  stations/{stationId}/controller/{deviceId}/config
+
+-------------------------------------------
+3. Payloads estándar
+-------------------------------------------
+
+A) Telemetry (datos periódicos, enviar cada N segundos):
+{
+  "ts": <timestamp en milisegundos>,
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "lockId": "lock-1",
+  "type": "lock",
+  "battery": 86,
+  "rssi": -63,
+  "state": "locked",   // o "unlocked"
+  "fw": "1.2.3",
+  "seq": 1042
+}
+
+B) Event (cuando ocurre algo importante):
+{
+  "ts": <timestamp>,
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "lockId": "lock-1",
+  "event": "tamper_detected",   // o error_motor, forced_open, etc.
+  "details": { "vibration": 0.87 }
+}
+
+C) State (respuesta a un comando del backend):
+{
+  "ts": <timestamp>,
+  "reqId": "7c1b3c",        // el mismo que envió el backend
+  "result": "ok",           // "ok" o "error"
+  "state": "unlocked",      // estado final del cerrojo
+  "error": null
+}
+
+D) Status (heartbeat / conexión):
+- Al conectarse → publicar en $birth:
+  { "status": "online" } (retained)
+- Configurar $will en el ESP32 para que si se desconecta mal,
+  Mosquitto publique automáticamente:
+  { "status": "offline" }
+
+E) Config (una sola vez al encender, retained):
+{
+  "stationId": "st-colima-0001",
+  "deviceId": "ctrl-07f3a2",
+  "locks": [
+    { "lockId": "lock-1", "position": "A1" },
+    { "lockId": "lock-2", "position": "A2" }
+  ],
+  "fw": "1.2.3",
+  "hw": "rev-B"
+}
+
+-------------------------------------------
+4. Buenas prácticas
+-------------------------------------------
+- Usar siempre JSON como formato de mensajes.
+- Incluir timestamp ("ts") en milisegundos UNIX en todos los mensajes.
+- Configurar correctamente el "Last Will & Testament" ($will).
+- Publicar "config" con la lista de cerrojos al arrancar, con retain.
+- Telemetría: enviar periódicamente (ej. cada 5-10 segundos).
+- Eventos: enviar solo cuando ocurren.
+- Respuestas (state): deben contener el mismo reqId recibido en el comando.
