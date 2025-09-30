@@ -19,7 +19,7 @@
 
 ## 🛠️ Instalación de Dependencias
 
-### 1. Clonar e instalar dependencias del proyecto
+### 1. Clonar e instalar dependencias del proyecto,
 
 ```bash
 # Navegar al directorio del proyecto
@@ -75,9 +75,11 @@ mysql -u root -p bike_station_db < sql/schema.sql
 
 ---
 
-## 📡 Configuración de MQTT (Mosquitto)
+## 📡 Configuración de MQTT
 
-### Para macOS/Linux:
+### Opción 1: MQTT Local (Mosquitto)
+
+#### Para macOS/Linux:
 
 ```bash
 # Instalar Mosquitto
@@ -90,7 +92,7 @@ brew services start mosquitto
 brew services list | grep mosquitto
 ```
 
-### Para Windows:
+#### Para Windows:
 
 ```cmd
 # 1. Descargar Mosquitto desde: https://mosquitto.org/download/
@@ -103,6 +105,48 @@ net start mosquitto
 # 5. Verificar que esté ejecutándose
 net start | findstr mosquitto
 ```
+
+### Opción 2: MQTT Cloud (Recomendado para IoT)
+
+**Ventaja:** Los dispositivos IoT pueden conectarse desde cualquier lugar y tu servidor local recibe todos los datos.
+
+#### Servidores MQTT Gratuitos:
+
+1. **Eclipse Mosquitto (Recomendado para pruebas)**
+
+   ```env
+   MQTT_URL=mqtt://test.mosquitto.org:1883
+   ```
+
+2. **HiveMQ Cloud**
+
+   ```env
+   MQTT_URL=mqtts://broker.hivemq.com:8883
+   ```
+
+3. **EMQX Cloud**
+
+   ```env
+   MQTT_URL=mqtts://broker.emqx.io:8883
+   ```
+
+4. **AWS IoT Core (Requiere cuenta AWS)**
+   ```env
+   MQTT_URL=wss://your-endpoint.iot.region.amazonaws.com/mqtt
+   ```
+
+#### Ventajas de MQTT Cloud vs Local:
+
+| Aspecto                  | MQTT Local            | MQTT Cloud               |
+| ------------------------ | --------------------- | ------------------------ |
+| **Dispositivos remotos** | ❌ Solo local         | ✅ Desde cualquier lugar |
+| **Infraestructura**      | ❌ Necesitas servidor | ✅ Sin mantenimiento     |
+| **Escalabilidad**        | ❌ Limitada           | ✅ Automática            |
+| **Conectividad**         | ❌ Solo LAN           | ✅ Internet global       |
+| **Configuración**        | ❌ Compleja           | ✅ Simple                |
+| **Costo**                | ❌ Servidor propio    | ✅ Gratuito (límites)    |
+
+**Recomendación:** Usa MQTT Cloud para proyectos IoT reales donde los dispositivos están distribuidos geográficamente.
 
 ---
 
@@ -117,7 +161,7 @@ cp env.example .env
 
 ### 2. Editar .env según tu configuración:
 
-#### Para macOS/Linux (MySQL sin contraseña):
+#### Para MQTT Local (MySQL sin contraseña):
 
 ```env
 # Configuración del servidor
@@ -125,8 +169,33 @@ PORT=3000
 NODE_ENV=development
 LOG_LEVEL=info
 
-# Configuración MQTT (Mosquitto)
+# Configuración MQTT Local
 MQTT_URL=mqtt://localhost:1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+
+# Configuración de base de datos MySQL
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=bike_station_db
+
+# Configuración adicional
+COMMAND_TIMEOUT=5000
+TELEMETRY_BATCH_SIZE=100
+```
+
+#### Para MQTT Cloud (Recomendado para IoT):
+
+```env
+# Configuración del servidor
+PORT=3000
+NODE_ENV=development
+LOG_LEVEL=info
+
+# Configuración MQTT Cloud (Eclipse Mosquitto)
+MQTT_URL=mqtt://test.mosquitto.org:1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
 
@@ -150,8 +219,9 @@ PORT=3000
 NODE_ENV=development
 LOG_LEVEL=info
 
-# Configuración MQTT (Mosquitto)
+# Configuración MQTT (Local o Cloud)
 MQTT_URL=mqtt://localhost:1883
+# O para Cloud: MQTT_URL=mqtt://test.mosquitto.org:1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
 

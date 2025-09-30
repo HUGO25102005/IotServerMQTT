@@ -9,6 +9,7 @@ export const env = cleanEnv(process.env, {
     MQTT_URL: str(),
     MQTT_USERNAME: str({ default: "" }),
     MQTT_PASSWORD: str({ default: "" }),
+    MQTT_CLIENT_ID: str({ default: "" }), // Client ID personalizado (opcional)
     DB_HOST: host(),
     DB_PORT: num({ default: 3306 }),
     DB_USER: str(),
