@@ -1,4 +1,4 @@
-export declare function handle({ deviceId, lockId, data }: {
+export declare function handle({ stationId, deviceId, lockId, data }: {
     stationId?: string;
     deviceId: string;
     lockId?: string;

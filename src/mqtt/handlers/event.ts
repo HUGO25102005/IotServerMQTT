@@ -1,5 +1,4 @@
 import { logger } from "../../config/logger";
-import { pool } from "../../infra/db";
 import { eventsRepo } from "../../domain/repositories/events.repo";
 
 interface EventData {

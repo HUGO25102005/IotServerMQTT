@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handle = handle;
 const locks_repo_1 = require("../../domain/repositories/locks.repo");
-const db_1 = require("../../infra/db");
+const telemetry_repo_1 = require("../../domain/repositories/telemetry.repo");
 const logger_1 = require("../../config/logger");
 async function handle({ stationId, deviceId, lockId, data }) {
     if (!lockId || typeof data?.ts !== "number" || !["locked", "unlocked"].includes(data?.state)) {
@@ -10,14 +10,29 @@ async function handle({ stationId, deviceId, lockId, data }) {
         return;
     }
     if (typeof data.seq === "number") {
-        const last = await (0, locks_repo_1.getLastSeq)(deviceId, lockId);
+        const last = await (0, locks_repo_1.getLastSeq)(stationId, deviceId, lockId);
         if (last !== undefined && data.seq <= last)
             return;
     }
-    await db_1.pool.execute(`INSERT INTO telemetry (station_id, controller_id, lock_id, ts, state, battery, rssi, fw, seq)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [stationId, deviceId, lockId, data.ts, data.state ?? null, data.battery ?? null, data.rssi ?? null, data.fw ?? null, data.seq ?? null]);
+    await telemetry_repo_1.telemetryRepo.create({
+        stationId,
+        controllerId: deviceId,
+        lockId,
+        ts: data.ts,
+        state: data.state,
+        battery: data.battery,
+        rssi: data.rssi,
+        fw: data.fw,
+        seq: data.seq,
+    });
     await (0, locks_repo_1.updateLockSnapshot)({
-        controllerId: deviceId, lockId, state: data.state, seq: data.seq, battery: data.battery, rssi: data.rssi
+        stationId,
+        controllerId: deviceId,
+        lockId,
+        state: data.state,
+        seq: data.seq,
+        battery: data.battery,
+        rssi: data.rssi,
     });
 }
 //# sourceMappingURL=telemetry.js.map

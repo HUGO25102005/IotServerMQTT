@@ -8,44 +8,50 @@ import * as status from "./handlers/status";
 import * as config from "./handlers/config";
 
 export function onMqttMessage(topic: string, raw: string) {
-  const { stationId, deviceId, lockId, subtype } = parseTopic(topic);
-  let data: any;
-  try { data = JSON.parse(raw); } 
-  catch { logger.warn({ topic }, "json_invalid"); return; }
+    const { stationId, deviceId, lockId, subtype } = parseTopic(topic);
+    let data: any;
+    try { data = JSON.parse(raw); }
+    catch { logger.warn({ topic }, "json_invalid"); return; }
 
-  mqttMessagesTotal.inc({ type: subtype! });
+    mqttMessagesTotal.inc({ type: subtype! });
 
-  switch (subtype) {
-    case "telemetry": return telemetry.handle({ stationId, deviceId, lockId, data });
-    case "event": {    
-        if (!lockId) {
-            logger.warn({ topic }, "lock_id_missing");
+    switch (subtype) {
+        case "telemetry":
+            telemetry.handle({ stationId, deviceId, lockId, data });
+            return;
+        case "event": {
+            if (!lockId) {
+                logger.warn({ topic }, "lock_id_missing");
+                return;
+            }
+            event.handle({ stationId, deviceId, lockId, data });
             return;
         }
-        return event.handle({ stationId, deviceId, lockId, data });
-    }
-    case "state": {
-        if (!lockId) {
-            logger.warn({ topic }, "lock_id_missing");
+        case "state": {
+            if (!lockId) {
+                logger.warn({ topic }, "lock_id_missing");
+                return;
+            }
+            state.handle({ stationId, deviceId, lockId, data });
             return;
         }
-        return state.handle({ stationId, deviceId, lockId, data });
-    }
-    case "status": {
-        if (!deviceId || !stationId) {
-            logger.warn({ topic }, "device_id_or_station_id_missing");
+        case "status": {
+            if (!deviceId || !stationId) {
+                logger.warn({ topic }, "device_id_or_station_id_missing");
+                return;
+            }
+            status.handle({ stationId, deviceId, data });
             return;
         }
-        return status.handle({ deviceId, data });
-    }
-    case "config": {
-        if (!deviceId || !stationId) {
-            logger.warn({ topic }, "device_id_missing");
+        case "config": {
+            if (!deviceId || !stationId) {
+                logger.warn({ topic }, "device_id_missing");
+                return;
+            }
+            config.handle({ stationId, deviceId, data });
             return;
         }
-        return config.handle({ stationId, deviceId, data });
+        default:
+            logger.warn({ topic }, "subtype_unknown");
     }
-    default:
-      logger.warn({ topic }, "subtype_unknown");
-  }
 }

@@ -1,22 +1,46 @@
 import { Request, Response } from "express";
 import { logger } from "../config/logger";
 import { sendCommand } from "../domain/services/command.services";
-import { pool } from "../infra/db";
+import { db } from "../infra/db";
+import { FieldPath } from "firebase-admin/firestore";
 
 export const locksController = {
     // Obtener estado de todos los locks
-    async getAll(req: Request, res: Response) {
+    async getAll(_req: Request, res: Response) {
         try {
-            const [rows] = await pool.execute(
-                `SELECT l.*, c.station_id, c.last_status as controller_status
-         FROM locks l
-         JOIN controllers c ON l.controller_id = c.id
-         ORDER BY c.station_id, l.position`
-            );
+            const stationsSnapshot = await db.collection("stations").get();
+            const allLocks: any[] = [];
+
+            for (const stationDoc of stationsSnapshot.docs) {
+                const stationId = stationDoc.id;
+                const controllersSnapshot = await stationDoc.ref.collection("controllers").get();
+
+                for (const controllerDoc of controllersSnapshot.docs) {
+                    const controllerData = controllerDoc.data();
+                    const locksSnapshot = await controllerDoc.ref.collection("locks").get();
+
+                    for (const lockDoc of locksSnapshot.docs) {
+                        allLocks.push({
+                            ...lockDoc.data(),
+                            id: lockDoc.id,
+                            station_id: stationId,
+                            controller_status: controllerData['last_status'],
+                        });
+                    }
+                }
+            }
+
+            // Ordenar por station_id y position
+            allLocks.sort((a, b) => {
+                if (a.station_id !== b.station_id) {
+                    return a.station_id.localeCompare(b.station_id);
+                }
+                return (a.position || "").localeCompare(b.position || "");
+            });
 
             res.json({
                 success: true,
-                data: rows
+                data: allLocks
             });
         } catch (error) {
             logger.error({ error }, "get_all_locks_failed");
@@ -32,28 +56,59 @@ export const locksController = {
         try {
             const { lockId } = req.params;
 
-            const [rows]: any = await pool.execute(
-                `SELECT l.*, c.station_id, c.last_status as controller_status
-         FROM locks l
-         JOIN controllers c ON l.controller_id = c.id
-         WHERE l.id = ?`,
-                [lockId]
-            );
+            const locksSnapshot = await db
+                .collectionGroup("locks")
+                .where(FieldPath.documentId(), "==", lockId)
+                .limit(1)
+                .get();
 
-            if (rows.length === 0) {
+            if (locksSnapshot.empty) {
                 return res.status(404).json({
                     success: false,
                     error: "Lock no encontrado"
                 });
             }
 
-            res.json({
+            const lockDoc = locksSnapshot.docs[0];
+            if (!lockDoc) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Lock no encontrado"
+                });
+            }
+
+            const lockData = lockDoc.data();
+            const lockPath = lockDoc.ref.path.split("/");
+            const stationId = lockPath[1];
+            const controllerId = lockPath[3];
+
+            if (!stationId || !controllerId) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Lock no encontrado"
+                });
+            }
+
+            // Obtener controller para controller_status
+            const controllerDoc = await db
+                .collection("stations")
+                .doc(stationId)
+                .collection("controllers")
+                .doc(controllerId)
+                .get();
+
+            return res.json({
                 success: true,
-                data: rows[0]
+                data: {
+                    ...lockData,
+                    id: lockDoc.id,
+                    station_id: stationId,
+                    controller_status: controllerDoc.data()?.['last_status'],
+                }
             });
         } catch (error) {
             logger.error({ error, lockId: req.params['lockId'] }, "get_lock_failed");
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: "Error interno del servidor"
             });
@@ -81,7 +136,7 @@ export const locksController = {
                 timeoutMs
             });
 
-            res.status(202).json({
+            return res.status(202).json({
                 success: true,
                 message: "Comando de bloqueo enviado",
                 data: {
@@ -91,7 +146,7 @@ export const locksController = {
             });
         } catch (error) {
             logger.error({ error, lockId: req.params['lockId'] }, "lock_command_failed");
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: "Error interno del servidor"
             });
@@ -119,7 +174,7 @@ export const locksController = {
                 timeoutMs
             });
 
-            res.status(202).json({
+            return res.status(202).json({
                 success: true,
                 message: "Comando de desbloqueo enviado",
                 data: {
@@ -129,7 +184,7 @@ export const locksController = {
             });
         } catch (error) {
             logger.error({ error, lockId: req.params['lockId'] }, "unlock_command_failed");
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: "Error interno del servidor"
             });
@@ -141,33 +196,78 @@ export const locksController = {
         try {
             const { lockId, reqId } = req.params;
 
-            const [rows]: any = await pool.execute(
-                `SELECT * FROM commands WHERE req_id = ? AND lock_id = ?`,
-                [reqId, lockId]
-            );
+            if (!reqId) {
+                return res.status(400).json({
+                    success: false,
+                    error: "reqId requerido"
+                });
+            }
 
-            if (rows.length === 0) {
+            // Usar commands_index para búsqueda rápida
+            const commandIndexDoc = await db.collection("commands_index").doc(reqId).get();
+
+            if (!commandIndexDoc.exists) {
                 return res.status(404).json({
                     success: false,
                     error: "Comando no encontrado"
                 });
             }
 
-            const command = rows[0];
-            res.json({
+            const indexData = commandIndexDoc.data()!;
+
+            // Verificar que el lock_id coincida
+            if (indexData['lock_id'] !== lockId) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Comando no encontrado"
+                });
+            }
+
+            // Obtener comando completo
+            const stationId = indexData['station_id'];
+            const controllerId = indexData['controller_id'];
+            const lockIdFromIndex = indexData['lock_id'];
+
+            if (!stationId || !controllerId || !lockIdFromIndex) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Comando no encontrado"
+                });
+            }
+
+            const commandDoc = await db
+                .collection("stations")
+                .doc(stationId)
+                .collection("controllers")
+                .doc(controllerId)
+                .collection("locks")
+                .doc(lockIdFromIndex)
+                .collection("commands")
+                .doc(reqId)
+                .get();
+
+            if (!commandDoc.exists) {
+                return res.status(404).json({
+                    success: false,
+                    error: "Comando no encontrado"
+                });
+            }
+
+            const commandData = commandDoc.data()!;
+            return res.json({
                 success: true,
                 data: {
-                    reqId: command.req_id,
-                    cmd: command.cmd,
-                    status: command.status,
-                    requestedAt: command.ts_requested,
-                    resolvedAt: command.ts_resolved,
-                    errorMsg: command.error_msg
+                    reqId: commandDoc.id,
+                    cmd: commandData['cmd'],
+                    status: commandData['status'],
+                    requestedAt: commandData['ts_requested'],
+                    resolvedAt: commandData['ts_resolved'],
+                    errorMsg: commandData['error_msg']
                 }
             });
         } catch (error) {
             logger.error({ error, lockId: req.params['lockId'], reqId: req.params['reqId'] }, "get_command_status_failed");
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: "Error interno del servidor"
             });
@@ -180,21 +280,25 @@ export const locksController = {
             const { lockId } = req.params;
             const limit = parseInt(req.query['limit'] as string) || 50;
 
-            const [rows] = await pool.execute(
-                `SELECT * FROM events 
-         WHERE lock_id = ? 
-         ORDER BY ts DESC 
-         LIMIT ?`,
-                [lockId, limit]
-            );
+            const eventsSnapshot = await db
+                .collectionGroup("events")
+                .where("lock_id", "==", lockId)
+                .orderBy("ts", "desc")
+                .limit(limit)
+                .get();
 
-            res.json({
+            const events = eventsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            return res.json({
                 success: true,
-                data: rows
+                data: events
             });
         } catch (error) {
             logger.error({ error, lockId: req.params['lockId'] }, "get_lock_events_failed");
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: "Error interno del servidor"
             });

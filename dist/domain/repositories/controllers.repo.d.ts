@@ -6,17 +6,26 @@ interface CreateControllerData {
 }
 interface UpdateControllerStatusData {
     id: string;
+    stationId: string;
     status: 'online' | 'offline' | 'unknown';
     lastSeenAt?: Date;
 }
 export declare const controllersRepo: {
-    create(data: CreateControllerData): Promise<import("mysql2").QueryResult>;
-    updateStatus(data: UpdateControllerStatusData): Promise<import("mysql2").QueryResult>;
-    findById(id: string): Promise<any>;
-    findByStation(stationId: string): Promise<import("mysql2").QueryResult>;
-    getAll(): Promise<import("mysql2").QueryResult>;
-    getOnlineCount(): Promise<any>;
-    getOfflineCount(): Promise<any>;
+    create(data: CreateControllerData): Promise<{
+        id: string;
+    }>;
+    updateStatus(data: UpdateControllerStatusData): Promise<{
+        id: string;
+    }>;
+    findById(id: string, stationId: string): Promise<{
+        id: string;
+    } | null>;
+    findByStation(stationId: string): Promise<{
+        id: string;
+    }[]>;
+    getAll(): Promise<any[]>;
+    getOnlineCount(): Promise<number>;
+    getOfflineCount(): Promise<number>;
 };
 export {};
 //# sourceMappingURL=controllers.repo.d.ts.map

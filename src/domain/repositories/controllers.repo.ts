@@ -1,4 +1,5 @@
-import { pool } from "../../infra/db";
+import { db } from "../../infra/db";
+import { FieldValue } from "firebase-admin/firestore";
 
 interface CreateControllerData {
     id: string;
@@ -9,71 +10,121 @@ interface CreateControllerData {
 
 interface UpdateControllerStatusData {
     id: string;
+    stationId: string;
     status: 'online' | 'offline' | 'unknown';
     lastSeenAt?: Date;
 }
 
 export const controllersRepo = {
     async create(data: CreateControllerData) {
-        const [result] = await pool.execute(
-            `INSERT INTO controllers (id, station_id, fw, hw)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         station_id = VALUES(station_id),
-         fw = VALUES(fw),
-         hw = VALUES(hw)`,
-            [data.id, data.stationId, data.fw || null, data.hw || null]
+        const controllerRef = db
+            .collection("stations")
+            .doc(data.stationId)
+            .collection("controllers")
+            .doc(data.id);
+
+        await controllerRef.set(
+            {
+                station_id: data.stationId,
+                fw: data.fw || null,
+                hw: data.hw || null,
+                last_status: "unknown",
+                last_seen_at: null,
+                created_at: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
         );
-        return result;
+
+        return { id: controllerRef.id };
     },
 
     async updateStatus(data: UpdateControllerStatusData) {
-        const [result] = await pool.execute(
-            `UPDATE controllers 
-       SET last_status = ?, last_seen_at = ?
-       WHERE id = ?`,
-            [data.status, data.lastSeenAt || new Date(), data.id]
-        );
-        return result;
+        const controllerRef = db
+            .collection("stations")
+            .doc(data.stationId)
+            .collection("controllers")
+            .doc(data.id);
+
+        await controllerRef.update({
+            last_status: data.status,
+            last_seen_at: data.lastSeenAt || FieldValue.serverTimestamp(),
+        });
+
+        return { id: controllerRef.id };
     },
 
-    async findById(id: string) {
-        const [rows]: any = await pool.execute(
-            `SELECT * FROM controllers WHERE id = ?`,
-            [id]
-        );
-        return rows[0] || null;
+    async findById(id: string, stationId: string) {
+        const controllerDoc = await db
+            .collection("stations")
+            .doc(stationId)
+            .collection("controllers")
+            .doc(id)
+            .get();
+
+        if (!controllerDoc.exists) return null;
+
+        return {
+            id: controllerDoc.id,
+            ...controllerDoc.data()
+        };
     },
 
     async findByStation(stationId: string) {
-        const [rows] = await pool.execute(
-            `SELECT * FROM controllers WHERE station_id = ?`,
-            [stationId]
-        );
-        return rows;
+        const snapshot = await db
+            .collection("stations")
+            .doc(stationId)
+            .collection("controllers")
+            .get();
+
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
     },
 
     async getAll() {
-        const [rows] = await pool.execute(
-            `SELECT c.*, s.name as station_name
-       FROM controllers c
-       LEFT JOIN stations s ON c.station_id = s.id
-       ORDER BY c.station_id, c.id`
-        );
-        return rows;
+        const stationsSnapshot = await db.collection("stations").get();
+        const allControllers: any[] = [];
+
+        for (const stationDoc of stationsSnapshot.docs) {
+            const stationData = stationDoc.data();
+            const controllersSnapshot = await stationDoc.ref.collection("controllers").get();
+
+            for (const controllerDoc of controllersSnapshot.docs) {
+                allControllers.push({
+                    id: controllerDoc.id,
+                    ...controllerDoc.data(),
+                    station_name: stationData['name'] || null,
+                });
+            }
+        }
+
+        // Ordenar por station_id e id
+        allControllers.sort((a, b) => {
+            if (a.station_id !== b.station_id) {
+                return a.station_id.localeCompare(b.station_id);
+            }
+            return a.id.localeCompare(b.id);
+        });
+
+        return allControllers;
     },
 
     async getOnlineCount() {
-        const [rows]: any = await pool.execute(
-            `SELECT COUNT(*) as count FROM controllers WHERE last_status = 'online'`
-        );
-        return rows[0].count;
+        const snapshot = await db
+            .collectionGroup("controllers")
+            .where("last_status", "==", "online")
+            .get();
+
+        return snapshot.size;
     },
 
     async getOfflineCount() {
-        const [rows]: any = await pool.execute(
-            `SELECT COUNT(*) as count FROM controllers WHERE last_status = 'offline'`
-        );
-        return rows[0].count;
+        const snapshot = await db
+            .collectionGroup("controllers")
+            .where("last_status", "==", "offline")
+            .get();
+
+        return snapshot.size;
     }
 };

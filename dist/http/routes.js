@@ -45,9 +45,29 @@ exports.router.post("/locks/:lockId/unlock", locks_controller_1.locksController.
 exports.router.get("/locks/:lockId/status/:reqId", locks_controller_1.locksController.getCommandStatus);
 exports.router.get("/locks/:lockId/events", locks_controller_1.locksController.getEvents);
 exports.router.get("/controllers/:controllerId/locks", async (req, res) => {
-    const { pool } = await Promise.resolve().then(() => __importStar(require("../infra/db")));
-    const [rows] = await pool.query("SELECT id AS lockId, last_state, last_battery, last_rssi, position FROM locks WHERE controller_id=?", [req.params.controllerId]);
-    res.json(rows);
+    const { db } = await Promise.resolve().then(() => __importStar(require("../infra/db")));
+    const { stationId } = req.query;
+    if (!stationId) {
+        return res.status(400).json({ error: "stationId requerido en query" });
+    }
+    const locksSnapshot = await db
+        .collection("stations")
+        .doc(stationId)
+        .collection("controllers")
+        .doc(req.params.controllerId)
+        .collection("locks")
+        .get();
+    const locks = locksSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            lockId: doc.id,
+            last_state: data['last_state'],
+            last_battery: data['last_battery'],
+            last_rssi: data['last_rssi'],
+            position: data['position'],
+        };
+    });
+    return res.json(locks);
 });
 exports.router.post("/stations/:stationId/controllers/:controllerId/locks/:lockId/:cmd", async (req, res) => {
     const { sendCommand } = await Promise.resolve().then(() => __importStar(require("../domain/services/command.services")));
@@ -57,11 +77,39 @@ exports.router.post("/stations/:stationId/controllers/:controllerId/locks/:lockI
     res.status(202).json(r);
 });
 exports.router.get("/commands/:reqId", async (req, res) => {
-    const { pool } = await Promise.resolve().then(() => __importStar(require("../infra/db")));
-    const [rows] = await pool.query("SELECT req_id, status, error_msg, ts_requested, ts_resolved FROM commands WHERE req_id=?", [req.params.reqId]);
-    if (!rows.length)
+    const { db } = await Promise.resolve().then(() => __importStar(require("../infra/db")));
+    const commandIndexDoc = await db.collection("commands_index").doc(req.params.reqId).get();
+    if (!commandIndexDoc.exists) {
         return res.status(404).json({ message: "Not found" });
-    res.json(rows[0]);
+    }
+    const indexData = commandIndexDoc.data();
+    const stationId = indexData['station_id'];
+    const controllerId = indexData['controller_id'];
+    const lockId = indexData['lock_id'];
+    if (!stationId || !controllerId || !lockId) {
+        return res.status(404).json({ message: "Not found" });
+    }
+    const commandDoc = await db
+        .collection("stations")
+        .doc(stationId)
+        .collection("controllers")
+        .doc(controllerId)
+        .collection("locks")
+        .doc(lockId)
+        .collection("commands")
+        .doc(req.params.reqId)
+        .get();
+    if (!commandDoc.exists) {
+        return res.status(404).json({ message: "Not found" });
+    }
+    const commandData = commandDoc.data();
+    return res.json({
+        req_id: commandDoc.id,
+        status: commandData['status'],
+        error_msg: commandData['error_msg'],
+        ts_requested: commandData['ts_requested'],
+        ts_resolved: commandData['ts_resolved'],
+    });
 });
 exports.router.get("/metrics", async (_req, res) => {
     res.set("Content-Type", metrics_1.register.contentType);

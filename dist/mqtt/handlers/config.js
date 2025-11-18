@@ -2,16 +2,33 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handle = handle;
 const db_1 = require("../../infra/db");
+const firestore_1 = require("firebase-admin/firestore");
+const controllers_repo_1 = require("../../domain/repositories/controllers.repo");
 async function handle({ stationId, deviceId, data }) {
-    await db_1.pool.execute(`INSERT INTO stations (id) VALUES (?) ON DUPLICATE KEY UPDATE id=id`, [stationId]);
-    await db_1.pool.execute(`INSERT INTO controllers (id, station_id, fw, hw)
-     VALUES (?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE station_id=VALUES(station_id), fw=VALUES(fw), hw=VALUES(hw)`, [deviceId, stationId, data?.fw ?? null, data?.hw ?? null]);
+    await db_1.db
+        .collection("stations")
+        .doc(stationId)
+        .set({ created_at: firestore_1.FieldValue.serverTimestamp() }, { merge: true });
+    await controllers_repo_1.controllersRepo.create({
+        id: deviceId,
+        stationId,
+        fw: data?.fw,
+        hw: data?.hw,
+    });
     if (Array.isArray(data?.locks)) {
         for (const l of data.locks) {
-            await db_1.pool.execute(`INSERT INTO locks (id, controller_id, position)
-         VALUES (?, ?, ?) 
-         ON DUPLICATE KEY UPDATE controller_id=VALUES(controller_id), position=VALUES(position)`, [l.lockId, deviceId, l.position ?? null]);
+            const lockRef = db_1.db
+                .collection("stations")
+                .doc(stationId)
+                .collection("controllers")
+                .doc(deviceId)
+                .collection("locks")
+                .doc(l.lockId);
+            await lockRef.set({
+                controller_id: deviceId,
+                position: l.position ?? null,
+                created_at: firestore_1.FieldValue.serverTimestamp(),
+            }, { merge: true });
         }
     }
 }

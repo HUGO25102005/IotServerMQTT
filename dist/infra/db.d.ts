@@ -1,3 +1,3 @@
-import mysql from "mysql2/promise";
-export declare const pool: mysql.Pool;
+import admin from "firebase-admin";
+export declare const db: admin.firestore.Firestore;
 //# sourceMappingURL=db.d.ts.map

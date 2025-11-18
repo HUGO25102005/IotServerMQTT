@@ -10,13 +10,32 @@ interface CreateTelemetryData {
     seq?: number;
 }
 export declare const telemetryRepo: {
-    create(data: CreateTelemetryData): Promise<import("mysql2").QueryResult>;
-    findByLock(lockId: string, limit?: number): Promise<import("mysql2").QueryResult>;
-    findByController(controllerId: string, limit?: number): Promise<import("mysql2").QueryResult>;
-    findByStation(stationId: string, limit?: number): Promise<import("mysql2").QueryResult>;
-    getLatestByLock(lockId: string): Promise<any>;
-    getStatsByTimeRange(stationId: string, startTs: number, endTs: number): Promise<any>;
-    getBatteryStats(): Promise<any>;
+    create(data: CreateTelemetryData): Promise<{
+        id: string;
+    }>;
+    findByLock(lockId: string, limit?: number): Promise<{
+        id: string;
+    }[]>;
+    findByController(controllerId: string, limit?: number): Promise<{
+        id: string;
+    }[]>;
+    findByStation(stationId: string, limit?: number): Promise<{
+        id: string;
+    }[]>;
+    getLatestByLock(lockId: string): Promise<{
+        id: string;
+    } | null>;
+    getStatsByTimeRange(stationId: string, startTs: number, endTs: number): Promise<{
+        total_messages: number;
+        unique_locks: number;
+        avg_battery: number | null;
+        avg_rssi: number | null;
+    }>;
+    getBatteryStats(): Promise<{
+        total_locks: number;
+        low_battery_count: number;
+        avg_battery: number | null;
+    }>;
 };
 export {};
 //# sourceMappingURL=telemetry.repo.d.ts.map

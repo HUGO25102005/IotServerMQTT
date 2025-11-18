@@ -8,10 +8,18 @@ interface CreateEventData {
     severity: 'info' | 'warn' | 'error';
 }
 export declare const eventsRepo: {
-    create(data: CreateEventData): Promise<import("mysql2").QueryResult>;
-    findByLock(lockId: string, limit?: number): Promise<import("mysql2").QueryResult>;
-    findByStation(stationId: string, limit?: number): Promise<import("mysql2").QueryResult>;
-    findBySeverity(severity: "info" | "warn" | "error", limit?: number): Promise<import("mysql2").QueryResult>;
+    create(data: CreateEventData): Promise<{
+        id: string;
+    }>;
+    findByLock(lockId: string, limit?: number): Promise<{
+        id: string;
+    }[]>;
+    findByStation(stationId: string, limit?: number): Promise<{
+        id: string;
+    }[]>;
+    findBySeverity(severity: "info" | "warn" | "error", limit?: number): Promise<{
+        id: string;
+    }[]>;
 };
 export {};
 //# sourceMappingURL=events.repo.d.ts.map

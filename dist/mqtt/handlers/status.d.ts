@@ -1,4 +1,5 @@
-export declare function handle({ deviceId, data }: {
+export declare function handle({ stationId, deviceId, data }: {
+    stationId: string;
     deviceId: string;
     data: any;
 }): Promise<void>;

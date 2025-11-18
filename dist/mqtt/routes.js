@@ -54,34 +54,40 @@ function onMqttMessage(topic, raw) {
     }
     metrics_1.mqttMessagesTotal.inc({ type: subtype });
     switch (subtype) {
-        case "telemetry": return telemetry.handle({ stationId, deviceId, lockId, data });
+        case "telemetry":
+            telemetry.handle({ stationId, deviceId, lockId, data });
+            return;
         case "event": {
             if (!lockId) {
                 logger_1.logger.warn({ topic }, "lock_id_missing");
                 return;
             }
-            return event.handle({ stationId, deviceId, lockId, data });
+            event.handle({ stationId, deviceId, lockId, data });
+            return;
         }
         case "state": {
             if (!lockId) {
                 logger_1.logger.warn({ topic }, "lock_id_missing");
                 return;
             }
-            return state.handle({ stationId, deviceId, lockId, data });
+            state.handle({ stationId, deviceId, lockId, data });
+            return;
         }
         case "status": {
             if (!deviceId || !stationId) {
                 logger_1.logger.warn({ topic }, "device_id_or_station_id_missing");
                 return;
             }
-            return status.handle({ deviceId, data });
+            status.handle({ stationId, deviceId, data });
+            return;
         }
         case "config": {
             if (!deviceId || !stationId) {
                 logger_1.logger.warn({ topic }, "device_id_missing");
                 return;
             }
-            return config.handle({ stationId, deviceId, data });
+            config.handle({ stationId, deviceId, data });
+            return;
         }
         default:
             logger_1.logger.warn({ topic }, "subtype_unknown");

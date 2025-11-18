@@ -1,20 +1,60 @@
-import { pool } from "../../infra/db";
-export async function updateLockSnapshot(p:{controllerId:string, lockId:string, state?:'locked'|'unlocked', seq?:number, battery?:number, rssi?:number}) {
-  const conn = await pool.getConnection();
-  try {
-    await conn.execute(
-      `INSERT INTO locks (id, controller_id, last_state, last_seq, last_battery, last_rssi)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         last_state=VALUES(last_state),
-         last_seq=GREATEST(COALESCE(last_seq,0), VALUES(last_seq)),
-         last_battery=VALUES(last_battery),
-         last_rssi=VALUES(last_rssi)`,
-      [p.lockId, p.controllerId, p.state ?? null, p.seq ?? null, p.battery ?? null, p.rssi ?? null]
-    );
-  } finally { conn.release(); }
+import { db } from "../../infra/db";
+import { FieldValue } from "firebase-admin/firestore";
+
+export async function updateLockSnapshot(p: {
+    stationId: string;
+    controllerId: string;
+    lockId: string;
+    state?: 'locked' | 'unlocked';
+    seq?: number;
+    battery?: number;
+    rssi?: number;
+}) {
+    const lockRef = db
+        .collection("stations")
+        .doc(p.stationId)
+        .collection("controllers")
+        .doc(p.controllerId)
+        .collection("locks")
+        .doc(p.lockId);
+
+    const updateData: any = {
+        controller_id: p.controllerId,
+        updated_at: FieldValue.serverTimestamp(),
+    };
+
+    if (p.state !== undefined) updateData.last_state = p.state;
+    if (p.battery !== undefined) updateData.last_battery = p.battery;
+    if (p.rssi !== undefined) updateData.last_rssi = p.rssi;
+
+    if (p.seq !== undefined) {
+        // Usar transacción para GREATEST
+        await db.runTransaction(async (transaction) => {
+            const lockDoc = await transaction.get(lockRef);
+            const lockData = lockDoc.data();
+            const currentSeq = lockData?.['last_seq'] || 0;
+            updateData.last_seq = Math.max(currentSeq, p.seq!);
+            transaction.set(lockRef, updateData, { merge: true });
+        });
+    } else {
+        await lockRef.set(updateData, { merge: true });
+    }
 }
-export async function getLastSeq(controllerId:string, lockId:string) {
-  const [rows]: any = await pool.query("SELECT last_seq FROM locks WHERE id=? AND controller_id=?", [lockId, controllerId]);
-  return rows[0]?.last_seq as number|undefined;
+
+export async function getLastSeq(
+    stationId: string,
+    controllerId: string,
+    lockId: string
+): Promise<number | undefined> {
+    const lockDoc = await db
+        .collection("stations")
+        .doc(stationId)
+        .collection("controllers")
+        .doc(controllerId)
+        .collection("locks")
+        .doc(lockId)
+        .get();
+
+    const lockData = lockDoc.data();
+    return lockData?.['last_seq'];
 }
