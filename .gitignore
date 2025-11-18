@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Firebase credentials (CRÍTICO - NO SUBIR A GIT)
+firebase-credentials.json
+*-credentials.json
+serviceAccountKey.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build
+build/
+*.tsbuildinfo
+

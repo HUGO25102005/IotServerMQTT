@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { mqttClient } from "../../infra/mqtt";
 import { createPending, resolve } from "../repositories/commands.repo";
-import { commandLatency } from "../../infra/metrics";
+// import { commandLatency } from "../../infra/metrics";
 
 export async function sendCommand(p:{stationId:string, controllerId:string, lockId:string, cmd:"lock"|"unlock"|"reboot", timeoutMs:number}) {
   const reqId = uuidv4().slice(0, 8);

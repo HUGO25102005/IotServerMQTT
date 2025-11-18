@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { cleanEnv, str, num, url, host } from "envalid";
+import { cleanEnv, str, num } from "envalid";
 
 // Cargar variables de entorno desde .env
 config();
@@ -10,9 +10,12 @@ export const env = cleanEnv(process.env, {
     MQTT_USERNAME: str({ default: "" }),
     MQTT_PASSWORD: str({ default: "" }),
     MQTT_CLIENT_ID: str({ default: "" }), // Client ID personalizado (opcional)
-    DB_HOST: host(),
-    DB_PORT: num({ default: 3306 }),
-    DB_USER: str(),
-    DB_PASSWORD: str(),
-    DB_NAME: str(),
+
+    // Firebase Admin SDK - Opción 1: Archivo JSON (Recomendado)
+    FIREBASE_CREDENTIALS_PATH: str({ default: "./firebase-credentials.json" }),
+
+    // Firebase Admin SDK - Opción 2: Variables de entorno (Alternativa)
+    FIREBASE_PROJECT_ID: str({ default: "" }),
+    FIREBASE_CLIENT_EMAIL: str({ default: "" }),
+    FIREBASE_PRIVATE_KEY: str({ default: "" }),
 });
