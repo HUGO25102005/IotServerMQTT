@@ -5,4 +5,5 @@ export { default as CommandsModel } from "./CommandsModel";
 export { default as StatusModel } from "./StatusModel";
 export { default as ConfigModel } from "./ConfigModel";
 export { default as StateModel } from "./StateModel";
+export { default as LoggerModel } from "./LoggerModel";
 

@@ -18,7 +18,6 @@ export async function updateLockSnapshot(p: {
         .collection("locks")
         .doc(p.lockId);
 
-    console.log({ lockRef });
     const updateData: any = {
         controller_id: p.controllerId,
         updated_at: FieldValue.serverTimestamp(),

@@ -41,7 +41,7 @@ class ObjectMqttModel {
         const action = parts[parts.length - 1] ?? ""; // telemetry|event|state|command|status|config
 
         const hasLocks = section === "locks";
-        const lockId = hasLocks ? parts[6] ?? "" : "";
+        const lockId = hasLocks ? parts[5] ?? "" : "";
 
         this.parsedTopicCache = {
             stationId,

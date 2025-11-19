@@ -10,6 +10,7 @@ import {
     StateController,
 } from "./mqtt/classes/controllers";
 import { ObjectMqttModel } from "./mqtt/classes/models";
+import { LoggerController } from "./http/controllers";
 
 /**
  * Clase principal que orquesta el procesamiento de mensajes MQTT
@@ -149,7 +150,9 @@ class Main {
                     }
                     await this.handleCommand(topic, payloadData, messageStr);
                     break;
-
+                case "logs":
+                    await this.handleLogs(topic, payloadData, messageStr);
+                    break;
                 default:
                     logger.warn({ topic, action }, "action_unknown");
             }
@@ -203,6 +206,13 @@ class Main {
      */
     private static async handleCommand(topic: string, payload: any, messageStr: string): Promise<void> {
         const controller = new CommandsController(topic, payload, messageStr);
+        await controller.handle();
+    }
+    /**
+     * Maneja mensajes de logs
+     */
+    private static async handleLogs(topic: string, payload: any, messageStr: string): Promise<void> {
+        const controller = new LoggerController(topic, payload, messageStr);
         await controller.handle();
     }
 

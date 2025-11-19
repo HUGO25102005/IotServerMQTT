@@ -69,13 +69,14 @@ class BaseFirestoreModel {
         if (!collectionRef) {
             throw new Error(`No se puede usar create() para ${this.collectionName}. Usa los métodos específicos de la clase.`);
         }
-
+        // console.log(collectionRef.doc(docId));
         const docRef = docId ? collectionRef.doc(docId) : collectionRef.doc();
 
         const dataToSave = {
             ...data,
+            // Construir topic usando "controllers" (plural) para la ruta de Firestore
             topic: this.parsedTopic.stationId ?
-                `stations/${this.parsedTopic.stationId}/controller/${this.parsedTopic.controllerId}${this.parsedTopic.lockId ? `/locks/${this.parsedTopic.lockId}` : ''}/${this.parsedTopic.action}` :
+                `stations/${this.parsedTopic.stationId}/controllers/${this.parsedTopic.controllerId}${this.parsedTopic.lockId ? `/locks/${this.parsedTopic.lockId}` : ''}${this.parsedTopic.action ? `/${this.parsedTopic.action}` : ''}` :
                 '',
             station_id: this.parsedTopic.stationId,
             controller_id: this.parsedTopic.controllerId,
