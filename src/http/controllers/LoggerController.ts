@@ -107,6 +107,24 @@ class LoggerController {
     }
 
     /**
+     * Obtiene todos los logs
+     * @param limit - Número máximo de logs a retornar (opcional)
+     * @returns Array de logs
+     */
+    public async findAll(limit?: number): Promise<any[]> {
+        return await this.model.findAll(limit);
+    }
+
+    /**
+     * Obtiene un log por ID
+     * @param logId - ID del log
+     * @returns Log o null si no existe
+     */
+    public async findById(logId: string): Promise<any | null> {
+        return await this.model.findById(logId);
+    }
+
+    /**
      * Obtiene el modelo para acceso directo si es necesario
      */
     public getModel(): LoggerModel {

@@ -287,7 +287,7 @@ export const locksController = {
                 .limit(limit)
                 .get();
 
-            const events = eventsSnapshot.docs.map(doc => ({
+            const events = eventsSnapshot.docs.map((doc: any) => ({
                 id: doc.id,
                 ...doc.data()
             }));

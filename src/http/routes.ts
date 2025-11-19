@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { locksController } from "./locks.controller";
 import { register } from "../infra/metrics";
+import { TelemetryController, LoggerController } from "./controllers";
+import { ParsedTopic } from "../mqtt/classes/models/ObjectMqttModel";
 
 export const router = Router();
 
@@ -11,6 +13,152 @@ router.post("/locks/:lockId/lock", locksController.lock);
 router.post("/locks/:lockId/unlock", locksController.unlock);
 router.get("/locks/:lockId/status/:reqId", locksController.getCommandStatus);
 router.get("/locks/:lockId/events", locksController.getEvents);
+
+// Rutas de telemetría
+router.get("/telemetry", async (req, res) => {
+    try {
+        const { stationId, controllerId, lockId, limit } = req.query;
+
+        if (!stationId || !controllerId || !lockId) {
+            return res.status(400).json({
+                error: "stationId, controllerId y lockId son requeridos en query params"
+            });
+        }
+
+        const parsedTopic: ParsedTopic = {
+            stationId: stationId as string,
+            controllerId: controllerId as string,
+            lockId: lockId as string,
+            action: "telemetry",
+            hasLocks: true,
+        };
+
+        const controller = new TelemetryController(parsedTopic);
+        const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+        const telemetry = await controller.findAll(limitNum);
+
+        return res.json({
+            stationId,
+            controllerId,
+            lockId,
+            count: telemetry.length,
+            data: telemetry,
+        });
+    } catch (error: any) {
+        return res.status(500).json({
+            error: "Error al obtener telemetría",
+            message: error.message,
+        });
+    }
+});
+
+router.get("/telemetry/:telemetryId", async (req, res) => {
+    try {
+        const { stationId, controllerId, lockId } = req.query;
+        const { telemetryId } = req.params;
+
+        if (!stationId || !controllerId || !lockId) {
+            return res.status(400).json({
+                error: "stationId, controllerId y lockId son requeridos en query params"
+            });
+        }
+
+        const parsedTopic: ParsedTopic = {
+            stationId: stationId as string,
+            controllerId: controllerId as string,
+            lockId: lockId as string,
+            action: "telemetry",
+            hasLocks: true,
+        };
+
+        const controller = new TelemetryController(parsedTopic);
+        const telemetry = await controller.findById(telemetryId);
+
+        if (!telemetry) {
+            return res.status(404).json({ message: "Telemetría no encontrada" });
+        }
+
+        return res.json(telemetry);
+    } catch (error: any) {
+        return res.status(500).json({
+            error: "Error al obtener telemetría",
+            message: error.message,
+        });
+    }
+});
+
+// Rutas de logs
+router.get("/logs", async (req, res) => {
+    try {
+        const { stationId, controllerId, lockId, limit } = req.query;
+
+        if (!stationId || !controllerId || !lockId) {
+            return res.status(400).json({
+                error: "stationId, controllerId y lockId son requeridos en query params"
+            });
+        }
+
+        const parsedTopic: ParsedTopic = {
+            stationId: stationId as string,
+            controllerId: controllerId as string,
+            lockId: lockId as string,
+            action: "telemetry", // La acción no importa para logs, siempre se guardan en "logs"
+            hasLocks: true,
+        };
+
+        const controller = new LoggerController(parsedTopic);
+        const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+        const logs = await controller.findAll(limitNum);
+
+        return res.json({
+            stationId,
+            controllerId,
+            lockId,
+            count: logs.length,
+            data: logs,
+        });
+    } catch (error: any) {
+        return res.status(500).json({
+            error: "Error al obtener logs",
+            message: error.message,
+        });
+    }
+});
+
+router.get("/logs/:logId", async (req, res) => {
+    try {
+        const { stationId, controllerId, lockId } = req.query;
+        const { logId } = req.params;
+
+        if (!stationId || !controllerId || !lockId) {
+            return res.status(400).json({
+                error: "stationId, controllerId y lockId son requeridos en query params"
+            });
+        }
+
+        const parsedTopic: ParsedTopic = {
+            stationId: stationId as string,
+            controllerId: controllerId as string,
+            lockId: lockId as string,
+            action: "telemetry", // La acción no importa para logs
+            hasLocks: true,
+        };
+
+        const controller = new LoggerController(parsedTopic);
+        const log = await controller.findById(logId);
+
+        if (!log) {
+            return res.status(404).json({ message: "Log no encontrado" });
+        }
+
+        return res.json(log);
+    } catch (error: any) {
+        return res.status(500).json({
+            error: "Error al obtener log",
+            message: error.message,
+        });
+    }
+});
 
 // Rutas legacy (mantener compatibilidad)
 router.get("/controllers/:controllerId/locks", async (req, res) => {
@@ -29,7 +177,7 @@ router.get("/controllers/:controllerId/locks", async (req, res) => {
         .collection("locks")
         .get();
 
-    const locks = locksSnapshot.docs.map(doc => {
+    const locks = locksSnapshot.docs.map((doc: any) => {
         const data = doc.data();
         return {
             lockId: doc.id,

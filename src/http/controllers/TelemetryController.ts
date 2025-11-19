@@ -88,6 +88,24 @@ class TelemetryController {
     }
 
     /**
+     * Obtiene todos los registros de telemetría
+     * @param limit - Número máximo de registros a retornar (opcional)
+     * @returns Array de registros de telemetría
+     */
+    public async findAll(limit?: number): Promise<any[]> {
+        return await this.model.findAll(limit);
+    }
+
+    /**
+     * Obtiene un registro de telemetría por ID
+     * @param telemetryId - ID del registro de telemetría
+     * @returns Registro de telemetría o null si no existe
+     */
+    public async findById(telemetryId: string): Promise<any | null> {
+        return await this.model.findById(telemetryId);
+    }
+
+    /**
      * Obtiene el modelo para acceso directo si es necesario
      */
     public getModel(): TelemetryModel {
