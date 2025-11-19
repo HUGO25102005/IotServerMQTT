@@ -34,7 +34,6 @@ class Main {
     private static setupMqttListeners() {
         mqttClient.on("connect", () => {
             logger.info({ url: process.env["MQTT_URL"] }, "[MQTT] Conectado");
-
             // Suscribirse a todos los topics definidos
             SUBSCRIPTIONS.forEach((topic) => {
                 mqttClient.subscribe(topic, { qos: 1 }, (err) => {
@@ -50,6 +49,7 @@ class Main {
         });
 
         mqttClient.on("message", async (topic, payload) => {
+            console.log(topic, payload);
             await this.handleMqttMessage(topic, payload);
         });
 
@@ -81,6 +81,13 @@ class Main {
             logger.warn({ topic, error: e }, "json_invalid");
             // Si no es JSON válido, guardar como texto plano
             payloadData = { raw: messageStr };
+        }
+
+        // Verificar si es un topic de cycloconnect (formato diferente)
+        if (topic.startsWith("cycloconnect/")) {
+            logger.debug({ topic }, "[MQTT] Mensaje recibido de cycloconnect (formato no estándar)");
+            // Por ahora solo logueamos, puedes agregar lógica específica aquí si es necesario
+            return;
         }
 
         // Crear un modelo temporal para parsear el topic y obtener la acción

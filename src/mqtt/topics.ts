@@ -4,6 +4,7 @@ export const SUBSCRIPTIONS = [
     "stations/+/controller/+/locks/+/state",
     "stations/+/controller/+/status",
     "stations/+/controller/+/config",
+    "cycloconnect/#", // Topic base para cycloconnect (captura todos los subtopics)
 ];
 interface ParseTopicResult {
     stationId: string;

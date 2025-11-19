@@ -8,7 +8,17 @@ const admin = new AdminFirebaseModel(
     env.FIREBASE_PRIVATE_KEY
 );
 
-admin.initialize();
-const db = admin.firestore();
+try {
+    admin.initialize();
+} catch (error) {
+    console.warn('[Firebase] No se pudo inicializar Firebase');
+}
+
+let db: any = null;
+try {
+    db = admin.firestore();
+} catch (error) {
+    console.warn('[Firebase] No se pudo obtener Firestore');
+}
 
 export default db;
