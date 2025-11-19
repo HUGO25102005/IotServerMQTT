@@ -49,7 +49,7 @@ class Main {
         });
 
         mqttClient.on("message", async (topic, payload) => {
-            console.log(topic, payload);
+            // console.log({ "topic": topic });
             await this.handleMqttMessage(topic, payload);
         });
 
@@ -86,8 +86,7 @@ class Main {
         // Verificar si es un topic de cycloconnect (formato diferente)
         if (topic.startsWith("cycloconnect/")) {
             logger.debug({ topic }, "[MQTT] Mensaje recibido de cycloconnect (formato no estándar)");
-            // Por ahora solo logueamos, puedes agregar lógica específica aquí si es necesario
-            return;
+            topic = topic.replace("cycloconnect/", "");
         }
 
         // Crear un modelo temporal para parsear el topic y obtener la acción

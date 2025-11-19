@@ -9,6 +9,10 @@ export async function handle({ stationId, deviceId, lockId, data }: {
     data: any;
 }) {
     if (!lockId || typeof data?.ts !== "number" || !["locked", "unlocked"].includes(data?.state)) {
+        console.log({ "data de telemetry desde handler invalid": data });
+        console.log({ "Lock": lockId });
+        console.log({ "type status": !["locked", "unlocked"].includes(data?.state) });
+        console.log({ "dtype data.ts": typeof data?.ts });
         logger.warn({ stationId, deviceId, lockId }, "telemetry_invalid");
         return;
     }

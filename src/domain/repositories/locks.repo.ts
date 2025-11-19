@@ -18,6 +18,7 @@ export async function updateLockSnapshot(p: {
         .collection("locks")
         .doc(p.lockId);
 
+    console.log({ lockRef });
     const updateData: any = {
         controller_id: p.controllerId,
         updated_at: FieldValue.serverTimestamp(),
@@ -29,7 +30,8 @@ export async function updateLockSnapshot(p: {
 
     if (p.seq !== undefined) {
         // Usar transacción para GREATEST
-        await db.runTransaction(async (transaction) => {
+
+        await db.runTransaction(async (transaction: any) => {
             const lockDoc = await transaction.get(lockRef);
             const lockData = lockDoc.data();
             const currentSeq = lockData?.['last_seq'] || 0;

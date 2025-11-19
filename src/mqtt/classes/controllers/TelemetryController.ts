@@ -29,7 +29,9 @@ class TelemetryController {
 
             // Obtener datos para Firestore
             const data = this.mqttModel.getDataForFirestore();
+            // console.log({ "data de telemetry": data });
 
+            // console.log({ "data de telemetry": data });
             // Guardar usando el controller HTTP
             await this.httpController.save(data);
 
