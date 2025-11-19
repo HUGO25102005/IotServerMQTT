@@ -111,12 +111,12 @@ int main() {
 ### **Para Madrid - Estación ctrl_001 - Objeto lock_001:**
 
 ```
-Telemetría: stations/madrid/controller/ctrl_001/locks/lock_001/telemetry
-Eventos:    stations/madrid/controller/ctrl_001/locks/lock_001/event
-Estado:     stations/madrid/controller/ctrl_001/locks/lock_001/state
-Comandos:   stations/madrid/controller/ctrl_001/locks/lock_001/command
-Status:     stations/madrid/controller/ctrl_001/status
-Config:     stations/madrid/controller/ctrl_001/config
+Telemetría: cycloconnect/stations/stn_001/controller/ctrl_001/locks/lock_001/telemetry
+Eventos:    stations/stn_001/controller/ctrl_001/locks/lock_001/event
+Estado:     stations/stn_001/controller/ctrl_001/locks/lock_001/state
+Comandos:   stations/stn_001/controller/ctrl_001/locks/lock_001/command
+Status:     stations/stn_001/controller/ctrl_001/status
+Config:     stations/stn_001/controller/ctrl_001/config
 ```
 
 ### **Para Barcelona - Estación ctrl_002 - Objeto lock_002:**

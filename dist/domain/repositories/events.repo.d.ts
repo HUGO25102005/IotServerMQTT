@@ -9,17 +9,11 @@ interface CreateEventData {
 }
 export declare const eventsRepo: {
     create(data: CreateEventData): Promise<{
-        id: string;
+        id: any;
     }>;
-    findByLock(lockId: string, limit?: number): Promise<{
-        id: string;
-    }[]>;
-    findByStation(stationId: string, limit?: number): Promise<{
-        id: string;
-    }[]>;
-    findBySeverity(severity: "info" | "warn" | "error", limit?: number): Promise<{
-        id: string;
-    }[]>;
+    findByLock(lockId: string, limit?: number): Promise<any>;
+    findByStation(stationId: string, limit?: number): Promise<any>;
+    findBySeverity(severity: "info" | "warn" | "error", limit?: number): Promise<any>;
 };
 export {};
 //# sourceMappingURL=events.repo.d.ts.map

@@ -1,11 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.controllersRepo = void 0;
-const db_1 = require("../../infra/db");
+const firebase_1 = __importDefault(require("../../infra/firebase"));
 const firestore_1 = require("firebase-admin/firestore");
 exports.controllersRepo = {
     async create(data) {
-        const controllerRef = db_1.db
+        const controllerRef = firebase_1.default
             .collection("stations")
             .doc(data.stationId)
             .collection("controllers")
@@ -21,7 +24,7 @@ exports.controllersRepo = {
         return { id: controllerRef.id };
     },
     async updateStatus(data) {
-        const controllerRef = db_1.db
+        const controllerRef = firebase_1.default
             .collection("stations")
             .doc(data.stationId)
             .collection("controllers")
@@ -33,7 +36,7 @@ exports.controllersRepo = {
         return { id: controllerRef.id };
     },
     async findById(id, stationId) {
-        const controllerDoc = await db_1.db
+        const controllerDoc = await firebase_1.default
             .collection("stations")
             .doc(stationId)
             .collection("controllers")
@@ -47,7 +50,7 @@ exports.controllersRepo = {
         };
     },
     async findByStation(stationId) {
-        const snapshot = await db_1.db
+        const snapshot = await firebase_1.default
             .collection("stations")
             .doc(stationId)
             .collection("controllers")
@@ -58,7 +61,7 @@ exports.controllersRepo = {
         }));
     },
     async getAll() {
-        const stationsSnapshot = await db_1.db.collection("stations").get();
+        const stationsSnapshot = await firebase_1.default.collection("stations").get();
         const allControllers = [];
         for (const stationDoc of stationsSnapshot.docs) {
             const stationData = stationDoc.data();
@@ -80,14 +83,14 @@ exports.controllersRepo = {
         return allControllers;
     },
     async getOnlineCount() {
-        const snapshot = await db_1.db
+        const snapshot = await firebase_1.default
             .collectionGroup("controllers")
             .where("last_status", "==", "online")
             .get();
         return snapshot.size;
     },
     async getOfflineCount() {
-        const snapshot = await db_1.db
+        const snapshot = await firebase_1.default
             .collectionGroup("controllers")
             .where("last_status", "==", "offline")
             .get();

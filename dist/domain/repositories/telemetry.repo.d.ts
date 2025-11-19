@@ -11,29 +11,21 @@ interface CreateTelemetryData {
 }
 export declare const telemetryRepo: {
     create(data: CreateTelemetryData): Promise<{
-        id: string;
+        id: any;
     }>;
-    findByLock(lockId: string, limit?: number): Promise<{
-        id: string;
-    }[]>;
-    findByController(controllerId: string, limit?: number): Promise<{
-        id: string;
-    }[]>;
-    findByStation(stationId: string, limit?: number): Promise<{
-        id: string;
-    }[]>;
-    getLatestByLock(lockId: string): Promise<{
-        id: string;
-    } | null>;
+    findByLock(lockId: string, limit?: number): Promise<any>;
+    findByController(controllerId: string, limit?: number): Promise<any>;
+    findByStation(stationId: string, limit?: number): Promise<any>;
+    getLatestByLock(lockId: string): Promise<any>;
     getStatsByTimeRange(stationId: string, startTs: number, endTs: number): Promise<{
-        total_messages: number;
+        total_messages: any;
         unique_locks: number;
         avg_battery: number | null;
         avg_rssi: number | null;
     }>;
     getBatteryStats(): Promise<{
-        total_locks: number;
-        low_battery_count: number;
+        total_locks: any;
+        low_battery_count: any;
         avg_battery: number | null;
     }>;
 };

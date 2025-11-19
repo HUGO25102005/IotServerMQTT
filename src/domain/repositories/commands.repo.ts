@@ -1,5 +1,6 @@
-import { db } from "../../infra/db";
+
 import { FieldValue } from "firebase-admin/firestore";
+import db from "../../infra/firebase";
 
 interface CreatePendingParams {
     reqId: string;

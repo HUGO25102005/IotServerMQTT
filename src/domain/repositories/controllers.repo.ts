@@ -1,4 +1,4 @@
-import { db } from "../../infra/db";
+import db from "../../infra/firebase";
 import { FieldValue } from "firebase-admin/firestore";
 
 interface CreateControllerData {
