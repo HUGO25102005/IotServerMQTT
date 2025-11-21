@@ -1,52 +1,67 @@
+import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { TelemetryModel } from "../models";
 import { TelemetryController as TelemetryHTTPController } from "../../../http/controllers";
+import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
 
 /**
- * Controller MQTT para Telemetry
+ * Handler MQTT para Telemetría
+ * Implementa IMqttMessageHandler para seguir el Strategy Pattern
  * Procesa mensajes de telemetría recibidos por MQTT y los guarda en Firestore
  */
-class TelemetryController {
-    private mqttModel: TelemetryModel;
-    private httpController: TelemetryHTTPController;
-
-    constructor(topic: string, payload: any, messageStr: string) {
-        this.mqttModel = new TelemetryModel(topic, payload, messageStr);
-        const parsedTopic = this.mqttModel.parseTopic();
-        this.httpController = new TelemetryHTTPController(parsedTopic);
-    }
-
+class TelemetryController implements IMqttMessageHandler {
     /**
-     * Procesa el mensaje de telemetría
+     * Procesa un mensaje de telemetría desde MQTT
+     * 
+     * @param parsedTopic - Topic ya parseado con stationId, controllerId, lockId, action
+     * @param payload - Payload del mensaje (ya parseado como JSON)
+     * @param messageStr - String original del mensaje
      */
-    public async handle(): Promise<void> {
+    public async handle(
+        parsedTopic: ParsedTopic,
+        payload: any,
+        messageStr: string
+    ): Promise<void> {
         try {
+            // Reconstruir el topic string para el modelo (temporal hasta que refactoricemos los modelos)
+            const topic = this.reconstructTopic(parsedTopic);
+
+            // Crear modelo MQTT para validación
+            const mqttModel = new TelemetryModel(topic, payload, messageStr);
+
             // Validar el modelo
-            if (!this.mqttModel.validate()) {
-                logger.warn({ topic: this.mqttModel.topic }, "telemetry_validation_failed");
+            if (!mqttModel.validate()) {
+                logger.warn({ parsedTopic }, "telemetry_validation_failed");
                 return;
             }
 
             // Obtener datos para Firestore
-            const data = this.mqttModel.getDataForFirestore();
-            // console.log({ "data de telemetry": data });
+            const data = mqttModel.getDataForFirestore();
 
-            // console.log({ "data de telemetry": data });
             // Guardar usando el controller HTTP
-            await this.httpController.save(data);
+            const httpController = new TelemetryHTTPController(parsedTopic);
+            await httpController.save(data);
 
-            logger.debug({ topic: this.mqttModel.topic }, "telemetry_handled");
+            logger.debug({ parsedTopic }, "telemetry_handled");
         } catch (error) {
-            logger.error({ error, topic: this.mqttModel.topic }, "telemetry_handle_failed");
+            logger.error({ error, parsedTopic }, "telemetry_handle_failed");
             throw error;
         }
     }
 
     /**
-     * Obtiene el modelo MQTT
+     * Helper para reconstruir el topic desde ParsedTopic
+     * Temporal hasta que refactoricemos los modelos MQTT para no depender del topic string
      */
-    public getMqttModel(): TelemetryModel {
-        return this.mqttModel;
+    private reconstructTopic(parsedTopic: ParsedTopic): string {
+        const parts = ["stations", parsedTopic.stationId, "controller", parsedTopic.controllerId];
+        if (parsedTopic.lockId) {
+            parts.push("locks", parsedTopic.lockId);
+        }
+        if (parsedTopic.action) {
+            parts.push(parsedTopic.action);
+        }
+        return parts.join("/");
     }
 }
 

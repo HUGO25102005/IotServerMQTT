@@ -11,22 +11,47 @@ import {
 } from "./mqtt/classes/controllers";
 import { ObjectMqttModel } from "./mqtt/classes/models";
 import { LoggerController } from "./http/controllers";
+import { MqttHandlerRegistry } from "./mqtt/registry/MqttHandlerRegistry";
 
 /**
  * Clase principal que orquesta el procesamiento de mensajes MQTT
- * Utiliza los controllers MQTT para procesar cada tipo de mensaje
+ * Utiliza el MqttHandlerRegistry para procesar cada tipo de mensaje siguiendo el Strategy Pattern
  */
 class Main {
+    private static handlerRegistry: MqttHandlerRegistry;
+
     /**
      * Inicializa el servidor MQTT y configura los listeners
      */
     static async start() {
         logger.info({}, "Inicializando servidor MQTT...");
 
+        // Inicializar registry de handlers
+        this.initializeHandlerRegistry();
+
         // Configurar eventos del cliente MQTT
         this.setupMqttListeners();
 
         logger.info({}, "Servidor MQTT inicializado correctamente");
+    }
+
+    /**
+     * Inicializa y registra todos los handlers MQTT
+     */
+    private static initializeHandlerRegistry() {
+        this.handlerRegistry = new MqttHandlerRegistry();
+
+        // Registrar todos los handlers
+        this.handlerRegistry.register("telemetry", new TelemetryController());
+        this.handlerRegistry.register("event", new EventsController());
+        this.handlerRegistry.register("state", new StateController());
+        this.handlerRegistry.register("status", new StatusController());
+        this.handlerRegistry.register("config", new ConfigController());
+        this.handlerRegistry.register("command", new CommandsController());
+        // Nota: logs no está en el registry porque usa LoggerController del http/controllers
+
+        const actions = this.handlerRegistry.getRegisteredActions();
+        logger.info({ count: actions.length, actions }, "[MQTT] Handlers registered");
     }
 
     /**
@@ -104,117 +129,35 @@ class Main {
         }, "[MQTT] Mensaje recibido");
 
         try {
-            // Routing basado en la acción del topic
-            switch (action) {
-                case "telemetry":
-                    await this.handleTelemetry(topic, payloadData, messageStr);
-                    break;
-
-                case "event":
-                    if (!parsedTopic.lockId) {
-                        logger.warn({ topic }, "lock_id_missing_for_event");
-                        return;
-                    }
-                    await this.handleEvent(topic, payloadData, messageStr);
-                    break;
-
-                case "state":
-                    if (!parsedTopic.lockId) {
-                        logger.warn({ topic }, "lock_id_missing_for_state");
-                        return;
-                    }
-                    await this.handleState(topic, payloadData, messageStr);
-                    break;
-
-                case "status":
-                    if (!parsedTopic.controllerId || !parsedTopic.stationId) {
-                        logger.warn({ topic }, "controller_id_or_station_id_missing");
-                        return;
-                    }
-                    await this.handleStatus(topic, payloadData, messageStr);
-                    break;
-
-                case "config":
-                    if (!parsedTopic.controllerId || !parsedTopic.stationId) {
-                        logger.warn({ topic }, "controller_id_or_station_id_missing");
-                        return;
-                    }
-                    await this.handleConfig(topic, payloadData, messageStr);
-                    break;
-
-                case "command":
-                    // Los comandos pueden ser respuestas del dispositivo
-                    if (!parsedTopic.lockId) {
-                        logger.warn({ topic }, "lock_id_missing_for_command");
-                        return;
-                    }
-                    await this.handleCommand(topic, payloadData, messageStr);
-                    break;
-                case "logs":
-                    await this.handleLogs(topic, payloadData, messageStr);
-                    break;
-                default:
-                    logger.warn({ topic, action }, "action_unknown");
+            // Caso especial: logs usa LoggerController que está en http/controllers
+            if (action === "logs") {
+                const controller = new LoggerController(parsedTopic);
+                await controller.save({
+                    type: "mqtt_log",
+                    message: messageStr,
+                    data: payloadData,
+                    severity: "info"
+                });
+                return;
             }
+
+            // Usar el registry para obtener el handler correspondiente
+            const handler = this.handlerRegistry.getHandler(action);
+
+            if (!handler) {
+                logger.warn({ topic, action }, "action_unknown");
+                return;
+            }
+
+            // Delegar al handler (que ahora tiene validaciones internas)
+            await handler.handle(parsedTopic, payloadData, messageStr);
+
         } catch (error) {
             logger.error({ error, topic, action }, "message_processing_failed");
         }
     }
 
-    /**
-     * Maneja mensajes de telemetría
-     */
-    private static async handleTelemetry(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new TelemetryController(topic, payload, messageStr);
-        await controller.handle();
-    }
 
-    /**
-     * Maneja mensajes de eventos
-     */
-    private static async handleEvent(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new EventsController(topic, payload, messageStr);
-        await controller.handle();
-    }
-
-    /**
-     * Maneja mensajes de estado
-     */
-    private static async handleState(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new StateController(topic, payload, messageStr);
-        await controller.handle();
-    }
-
-    /**
-     * Maneja mensajes de status del controlador
-     */
-    private static async handleStatus(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new StatusController(topic, payload, messageStr);
-        await controller.handle();
-    }
-
-    /**
-     * Maneja mensajes de configuración
-     */
-    private static async handleConfig(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new ConfigController(topic, payload, messageStr);
-        await controller.handle();
-    }
-
-    /**
-     * Maneja mensajes de comandos (respuestas del dispositivo)
-     */
-    private static async handleCommand(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new CommandsController(topic, payload, messageStr);
-        await controller.handle();
-    }
-    /**
-     * Maneja mensajes de logs
-     */
-    private static async handleLogs(topic: string, payload: any, messageStr: string): Promise<void> {
-        const controller = new LoggerController(topic, payload, messageStr);
-        await controller.handle();
-    }
 
     /**
      * Método estático para enviar un comando a un dispositivo
@@ -227,9 +170,8 @@ class Main {
         cmd: "lock" | "unlock" | "reboot";
         timeoutMs: number;
     }): Promise<{ reqId: string; acceptedAt: number }> {
-        // Crear un controller temporal solo para usar el método sendCommand
-        const topic = `stations/${params.stationId}/controller/${params.controllerId}/locks/${params.lockId}/command`;
-        const controller = new CommandsController(topic, {}, "");
+        // Instanciar CommandsController directamente para usar sendCommand
+        const controller = new CommandsController();
         return await controller.sendCommand(params);
     }
 }

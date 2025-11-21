@@ -1,50 +1,49 @@
+import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { ConfigModel } from "../models";
 import { ConfigController as ConfigHTTPController } from "../../../http/controllers";
+import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
 
 /**
- * Controller MQTT para Config
+ * Handler MQTT para Config
+ * Implementa IMqttMessageHandler para seguir el Strategy Pattern
  * Procesa mensajes de configuración del controlador recibidos por MQTT (retained)
  */
-class ConfigController {
-    private mqttModel: ConfigModel;
-    private httpController: ConfigHTTPController;
-
-    constructor(topic: string, payload: any, messageStr: string) {
-        this.mqttModel = new ConfigModel(topic, payload, messageStr);
-        const parsedTopic = this.mqttModel.parseTopic();
-        this.httpController = new ConfigHTTPController(parsedTopic);
-    }
-
-    /**
-     * Procesa el mensaje de configuración
-     */
-    public async handle(): Promise<void> {
+class ConfigController implements IMqttMessageHandler {
+    public async handle(
+        parsedTopic: ParsedTopic,
+        payload: any,
+        messageStr: string
+    ): Promise<void> {
         try {
-            // Validar el modelo
-            if (!this.mqttModel.validate()) {
-                logger.warn({ topic: this.mqttModel.topic }, "config_validation_failed");
+            const topic = this.reconstructTopic(parsedTopic);
+            const mqttModel = new ConfigModel(topic, payload, messageStr);
+
+            if (!mqttModel.validate()) {
+                logger.warn({ parsedTopic }, "config_validation_failed");
                 return;
             }
 
-            // Obtener datos para Firestore
-            const data = this.mqttModel.getDataForFirestore();
+            const data = mqttModel.getDataForFirestore();
+            const httpController = new ConfigHTTPController(parsedTopic);
+            await httpController.save(data);
 
-            // Guardar usando el controller HTTP
-            await this.httpController.save(data);
-
-            logger.debug({ topic: this.mqttModel.topic }, "config_handled");
+            logger.debug({ parsedTopic }, "config_handled");
         } catch (error) {
-            logger.error({ error, topic: this.mqttModel.topic }, "config_handle_failed");
+            logger.error({ error, parsedTopic }, "config_handle_failed");
             throw error;
         }
     }
 
-    /**
-     * Obtiene el modelo MQTT
-     */
-    public getMqttModel(): ConfigModel {
-        return this.mqttModel;
+    private reconstructTopic(parsedTopic: ParsedTopic): string {
+        const parts = ["stations", parsedTopic.stationId, "controller", parsedTopic.controllerId];
+        if (parsedTopic.lockId) {
+            parts.push("locks", parsedTopic.lockId);
+        }
+        if (parsedTopic.action) {
+            parts.push(parsedTopic.action);
+        }
+        return parts.join("/");
     }
 }
 

@@ -1,50 +1,66 @@
+import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { EventsModel } from "../models";
 import { EventsController as EventsHTTPController } from "../../../http/controllers";
+import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
 
 /**
- * Controller MQTT para Events
+ * Handler MQTT para Eventos
+ * Implementa IMqttMessageHandler para seguir el Strategy Pattern
  * Procesa eventos recibidos por MQTT y los guarda en Firestore
  */
-class EventsController {
-    private mqttModel: EventsModel;
-    private httpController: EventsHTTPController;
-
-    constructor(topic: string, payload: any, messageStr: string) {
-        this.mqttModel = new EventsModel(topic, payload, messageStr);
-        const parsedTopic = this.mqttModel.parseTopic();
-        this.httpController = new EventsHTTPController(parsedTopic);
-    }
-
+class EventsController implements IMqttMessageHandler {
     /**
-     * Procesa el mensaje de evento
+     * Procesa un mensaje de evento desde MQTT
+     * 
+     * @param parsedTopic - Topic ya parseado con stationId, controllerId, lockId, action
+     * @param payload - Payload del mensaje (ya parseado como JSON)
+     * @param messageStr - String original del mensaje
      */
-    public async handle(): Promise<void> {
+    public async handle(
+        parsedTopic: ParsedTopic,
+        payload: any,
+        messageStr: string
+    ): Promise<void> {
         try {
+            // Reconstruir el topic string para el modelo
+            const topic = this.reconstructTopic(parsedTopic);
+
+            // Crear modelo MQTT para validación
+            const mqttModel = new EventsModel(topic, payload, messageStr);
+
             // Validar el modelo
-            if (!this.mqttModel.validate()) {
-                logger.warn({ topic: this.mqttModel.topic }, "event_validation_failed");
+            if (!mqttModel.validate()) {
+                logger.warn({ parsedTopic }, "event_validation_failed");
                 return;
             }
 
             // Obtener datos para Firestore
-            const data = this.mqttModel.getDataForFirestore();
+            const data = mqttModel.getDataForFirestore();
 
             // Guardar usando el controller HTTP
-            await this.httpController.save(data);
+            const httpController = new EventsHTTPController(parsedTopic);
+            await httpController.save(data);
 
-            logger.debug({ topic: this.mqttModel.topic }, "event_handled");
+            logger.debug({ parsedTopic }, "event_handled");
         } catch (error) {
-            logger.error({ error, topic: this.mqttModel.topic }, "event_handle_failed");
+            logger.error({ error, parsedTopic }, "event_handle_failed");
             throw error;
         }
     }
 
     /**
-     * Obtiene el modelo MQTT
+     * Helper para reconstruir el topic desde ParsedTopic
      */
-    public getMqttModel(): EventsModel {
-        return this.mqttModel;
+    private reconstructTopic(parsedTopic: ParsedTopic): string {
+        const parts = ["stations", parsedTopic.stationId, "controller", parsedTopic.controllerId];
+        if (parsedTopic.lockId) {
+            parts.push("locks", parsedTopic.lockId);
+        }
+        if (parsedTopic.action) {
+            parts.push(parsedTopic.action);
+        }
+        return parts.join("/");
     }
 }
 

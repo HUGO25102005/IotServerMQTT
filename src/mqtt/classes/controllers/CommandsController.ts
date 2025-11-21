@@ -1,42 +1,42 @@
+import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { CommandsModel } from "../models";
 import { CommandsController as CommandsHTTPController } from "../../../http/controllers";
+import { ParsedTopic } from "../models/ObjectMqttModel";
 import { mqttClient } from "../../../infra/mqtt";
 import { logger } from "../../../config/logger";
 import { v4 as uuidv4 } from "uuid";
 
 /**
- * Controller MQTT para Commands
+ * Handler MQTT para Commands
+ * Implementa IMqttMessageHandler para seguir el Strategy Pattern
  * Único controller que puede publicar mensajes MQTT
  * También procesa respuestas de comandos recibidas por MQTT
  */
-class CommandsController {
-    private mqttModel: CommandsModel;
-    private httpController: CommandsHTTPController;
-
-    constructor(topic: string, payload: any, messageStr: string) {
-        this.mqttModel = new CommandsModel(topic, payload, messageStr);
-        const parsedTopic = this.mqttModel.parseTopic();
-        this.httpController = new CommandsHTTPController(parsedTopic);
-    }
-
+class CommandsController implements IMqttMessageHandler {
     /**
      * Procesa un mensaje de comando recibido (subscribe)
      * Normalmente esto sería una respuesta o ACK del dispositivo
      */
-    public async handle(): Promise<void> {
+    public async handle(
+        parsedTopic: ParsedTopic,
+        payload: any,
+        messageStr: string
+    ): Promise<void> {
         try {
-            // Validar el modelo
-            if (!this.mqttModel.validate()) {
-                logger.warn({ topic: this.mqttModel.topic }, "command_validation_failed");
+            const topic = this.reconstructTopic(parsedTopic);
+            const mqttModel = new CommandsModel(topic, payload, messageStr);
+
+            if (!mqttModel.validate()) {
+                logger.warn({ parsedTopic }, "command_validation_failed");
                 return;
             }
 
-            // Obtener datos para Firestore
-            const data = this.mqttModel.getDataForFirestore();
+            const data = mqttModel.getDataForFirestore();
+            const httpController = new CommandsHTTPController(parsedTopic);
 
             // Si es una respuesta de comando (tiene reqId y result), resolver el comando
             if (data.reqId && data.result) {
-                await this.httpController.resolve(
+                await httpController.resolve(
                     data.reqId,
                     data.result,
                     data.ts || Date.now(),
@@ -44,12 +44,12 @@ class CommandsController {
                 );
             } else {
                 // Si no, solo guardar el mensaje
-                await this.httpController.getModel().create(data);
+                await httpController.getModel().create(data);
             }
 
-            logger.debug({ topic: this.mqttModel.topic }, "command_handled");
+            logger.debug({ parsedTopic }, "command_handled");
         } catch (error) {
-            logger.error({ error, topic: this.mqttModel.topic }, "command_handle_failed");
+            logger.error({ error, parsedTopic }, "command_handle_failed");
             throw error;
         }
     }
@@ -69,8 +69,19 @@ class CommandsController {
         const ts = Date.now();
 
         try {
+            // Crear parsedTopic para el HTTP controller
+            const parsedTopic: ParsedTopic = {
+                stationId: params.stationId,
+                controllerId: params.controllerId,
+                lockId: params.lockId,
+                action: "command",
+                hasLocks: true
+            };
+
+            const httpController = new CommandsHTTPController(parsedTopic);
+
             // Crear comando pendiente en Firestore
-            await this.httpController.createPending({
+            await httpController.createPending({
                 reqId,
                 ts,
                 cmd: params.cmd,
@@ -87,7 +98,7 @@ class CommandsController {
             // Configurar timeout para resolver el comando si no hay respuesta
             setTimeout(async () => {
                 try {
-                    await this.httpController.resolve(reqId, "timeout", Date.now());
+                    await httpController.resolve(reqId, "timeout", Date.now());
                 } catch (error) {
                     logger.error({ error, reqId }, "command_timeout_resolve_failed");
                 }
@@ -102,11 +113,15 @@ class CommandsController {
         }
     }
 
-    /**
-     * Obtiene el modelo MQTT
-     */
-    public getMqttModel(): CommandsModel {
-        return this.mqttModel;
+    private reconstructTopic(parsedTopic: ParsedTopic): string {
+        const parts = ["stations", parsedTopic.stationId, "controller", parsedTopic.controllerId];
+        if (parsedTopic.lockId) {
+            parts.push("locks", parsedTopic.lockId);
+        }
+        if (parsedTopic.action) {
+            parts.push(parsedTopic.action);
+        }
+        return parts.join("/");
     }
 }
 
