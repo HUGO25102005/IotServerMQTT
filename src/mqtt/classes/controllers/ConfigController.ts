@@ -1,8 +1,8 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { ConfigModel } from "../models";
-import { ConfigController as ConfigHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
+import { ConfigService } from "../../../domain/services";
 
 /**
  * Handler MQTT para Config
@@ -25,8 +25,9 @@ class ConfigController implements IMqttMessageHandler {
             }
 
             const data = mqttModel.getDataForFirestore();
-            const httpController = new ConfigHTTPController(parsedTopic);
-            await httpController.save(data);
+            // Guardar usando el servicio de dominio
+            const service = new ConfigService(parsedTopic);
+            await service.save(data);
 
             logger.debug({ parsedTopic }, "config_handled");
         } catch (error) {

@@ -1,8 +1,8 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { StatusModel } from "../models";
-import { StatusController as StatusHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
+import { StatusService } from "../../../domain/services";
 
 /**
  * Handler MQTT para Status
@@ -25,8 +25,9 @@ class StatusController implements IMqttMessageHandler {
             }
 
             const data = mqttModel.getDataForFirestore();
-            const httpController = new StatusHTTPController(parsedTopic);
-            await httpController.save(data);
+            // Guardar usando el servicio de dominio
+            const service = new StatusService(parsedTopic);
+            await service.save(data);
 
             logger.debug({ parsedTopic }, "status_handled");
         } catch (error) {

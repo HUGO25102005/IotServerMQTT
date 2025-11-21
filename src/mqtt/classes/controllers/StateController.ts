@@ -1,8 +1,8 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { StateModel } from "../models";
-import { StateController as StateHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
+import { StateService } from "../../../domain/services";
 
 /**
  * Handler MQTT para State
@@ -25,8 +25,9 @@ class StateController implements IMqttMessageHandler {
             }
 
             const data = mqttModel.getDataForFirestore();
-            const httpController = new StateHTTPController(parsedTopic);
-            await httpController.save(data);
+            // Guardar usando el servicio de dominio
+            const service = new StateService(parsedTopic);
+            await service.save(data);
 
             logger.debug({ parsedTopic }, "state_handled");
         } catch (error) {

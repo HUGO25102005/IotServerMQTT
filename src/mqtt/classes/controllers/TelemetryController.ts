@@ -1,8 +1,9 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { TelemetryModel } from "../models";
-import { TelemetryController as TelemetryHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
+import { TelemetryService } from "../../../domain/services";
+
 
 /**
  * Handler MQTT para Telemetría
@@ -38,9 +39,9 @@ class TelemetryController implements IMqttMessageHandler {
             // Obtener datos para Firestore
             const data = mqttModel.getDataForFirestore();
 
-            // Guardar usando el controller HTTP
-            const httpController = new TelemetryHTTPController(parsedTopic);
-            await httpController.save(data);
+            // Guardar usando el servicio de dominio
+            const service = new TelemetryService(parsedTopic);
+            await service.save(data);
 
             logger.debug({ parsedTopic }, "telemetry_handled");
         } catch (error) {

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { locksController } from "./locks.controller";
 import { register } from "../infra/metrics";
-import { TelemetryController, LoggerController } from "./controllers";
 import { ParsedTopic } from "../mqtt/classes/models/ObjectMqttModel";
+import { LoggerService, TelemetryService } from "../domain/services";
 
 export const router = Router();
 
@@ -33,9 +33,9 @@ router.get("/telemetry", async (req, res) => {
             hasLocks: true,
         };
 
-        const controller = new TelemetryController(parsedTopic);
+        const service = new TelemetryService(parsedTopic);
         const limitNum = limit ? parseInt(limit as string, 10) : undefined;
-        const telemetry = await controller.findAll(limitNum);
+        const telemetry = await service.findAll(limitNum);
 
         return res.json({
             stationId,
@@ -71,8 +71,8 @@ router.get("/telemetry/:telemetryId", async (req, res) => {
             hasLocks: true,
         };
 
-        const controller = new TelemetryController(parsedTopic);
-        const telemetry = await controller.findById(telemetryId);
+        const service = new TelemetryService(parsedTopic);
+        const telemetry = await service.findById(telemetryId);
 
         if (!telemetry) {
             return res.status(404).json({ message: "Telemetría no encontrada" });
@@ -106,9 +106,9 @@ router.get("/logs", async (req, res) => {
             hasLocks: true,
         };
 
-        const controller = new LoggerController(parsedTopic);
+        const service = new LoggerService(parsedTopic);
         const limitNum = limit ? parseInt(limit as string, 10) : undefined;
-        const logs = await controller.findAll(limitNum);
+        const logs = await service.findAll(limitNum);
 
         return res.json({
             stationId,
@@ -144,8 +144,8 @@ router.get("/logs/:logId", async (req, res) => {
             hasLocks: true,
         };
 
-        const controller = new LoggerController(parsedTopic);
-        const log = await controller.findById(logId);
+        const service = new LoggerService(parsedTopic);
+        const log = await service.findById(logId);
 
         if (!log) {
             return res.status(404).json({ message: "Log no encontrado" });

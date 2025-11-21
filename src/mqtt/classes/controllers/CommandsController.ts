@@ -1,10 +1,10 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { CommandsModel } from "../models";
-import { CommandsController as CommandsHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
-import { mqttClient } from "../../../infra/mqtt";
 import { logger } from "../../../config/logger";
+import { CommandsService } from "../../../domain/services";
 import { v4 as uuidv4 } from "uuid";
+import { mqttClient } from "../../../infra/mqtt";
 
 /**
  * Handler MQTT para Commands
@@ -32,11 +32,15 @@ class CommandsController implements IMqttMessageHandler {
             }
 
             const data = mqttModel.getDataForFirestore();
-            const httpController = new CommandsHTTPController(parsedTopic);
+            // Guardar comando usando el servicio de dominio
+            const service = new CommandsService(parsedTopic);
+            // Nota: Los comandos MQTT recibidos no necesitan crear pending
+            // Solo se guarda el registro del comando recibido
+            logger.debug({ parsedTopic }, "command_received");
 
             // Si es una respuesta de comando (tiene reqId y result), resolver el comando
             if (data.reqId && data.result) {
-                await httpController.resolve(
+                await service.resolve(
                     data.reqId,
                     data.result,
                     data.ts || Date.now(),
@@ -44,7 +48,7 @@ class CommandsController implements IMqttMessageHandler {
                 );
             } else {
                 // Si no, solo guardar el mensaje
-                await httpController.getModel().create(data);
+                await service.getModel().create(data);
             }
 
             logger.debug({ parsedTopic }, "command_handled");
@@ -78,10 +82,10 @@ class CommandsController implements IMqttMessageHandler {
                 hasLocks: true
             };
 
-            const httpController = new CommandsHTTPController(parsedTopic);
+            const service = new CommandsService(parsedTopic);
 
             // Crear comando pendiente en Firestore
-            await httpController.createPending({
+            await service.createPending({
                 reqId,
                 ts,
                 cmd: params.cmd,
@@ -89,7 +93,7 @@ class CommandsController implements IMqttMessageHandler {
             });
 
             // Construir el topic para publicar
-            const publishTopic = `stations/${params.stationId}/controller/${params.controllerId}/locks/${params.lockId}/command/set`;
+            const publishTopic = `stations / ${params.stationId} /controller/${params.controllerId} /locks/${params.lockId} /command/set`;
 
             // Publicar el comando
             const payload = JSON.stringify({ ts, cmd: params.cmd, reqId, timeoutMs: params.timeoutMs });
@@ -98,7 +102,7 @@ class CommandsController implements IMqttMessageHandler {
             // Configurar timeout para resolver el comando si no hay respuesta
             setTimeout(async () => {
                 try {
-                    await httpController.resolve(reqId, "timeout", Date.now());
+                    await service.resolve(reqId, "timeout", Date.now());
                 } catch (error) {
                     logger.error({ error, reqId }, "command_timeout_resolve_failed");
                 }

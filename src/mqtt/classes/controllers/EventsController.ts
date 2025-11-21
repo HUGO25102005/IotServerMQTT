@@ -1,8 +1,8 @@
 import { IMqttMessageHandler } from "../../interfaces/IMqttMessageHandler";
 import { EventsModel } from "../models";
-import { EventsController as EventsHTTPController } from "../../../http/controllers";
 import { ParsedTopic } from "../models/ObjectMqttModel";
 import { logger } from "../../../config/logger";
+import { EventsService } from "../../../domain/services";
 
 /**
  * Handler MQTT para Eventos
@@ -38,9 +38,9 @@ class EventsController implements IMqttMessageHandler {
             // Obtener datos para Firestore
             const data = mqttModel.getDataForFirestore();
 
-            // Guardar usando el controller HTTP
-            const httpController = new EventsHTTPController(parsedTopic);
-            await httpController.save(data);
+            // Guardar usando el servicio de dominio
+            const service = new EventsService(parsedTopic);
+            await service.save(data);
 
             logger.debug({ parsedTopic }, "event_handled");
         } catch (error) {

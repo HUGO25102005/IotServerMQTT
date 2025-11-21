@@ -10,7 +10,7 @@ import {
     StateController,
 } from "./mqtt/classes/controllers";
 import { ObjectMqttModel } from "./mqtt/classes/models";
-import { LoggerController } from "./http/controllers";
+import { LoggerService } from "./domain/services";
 import { MqttHandlerRegistry } from "./mqtt/registry/MqttHandlerRegistry";
 
 /**
@@ -129,10 +129,10 @@ class Main {
         }, "[MQTT] Mensaje recibido");
 
         try {
-            // Caso especial: logs usa LoggerController que está en http/controllers
+            // Caso especial: logs usa LoggerService del domain/services
             if (action === "logs") {
-                const controller = new LoggerController(parsedTopic);
-                await controller.save({
+                const service = new LoggerService(parsedTopic);
+                await service.save({
                     type: "mqtt_log",
                     message: messageStr,
                     data: payloadData,
