@@ -76,7 +76,7 @@ export const controllersRepo = {
             .collection("controllers")
             .get();
 
-        return snapshot.docs.map(doc => ({
+        return snapshot.docs.map((doc: any) => ({
             id: doc.id,
             ...doc.data()
         }));

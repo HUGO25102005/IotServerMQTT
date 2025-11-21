@@ -3,10 +3,12 @@ import { locksController } from "./locks.controller";
 import { register } from "../infra/metrics";
 import { ParsedTopic } from "../mqtt/classes/models/ObjectMqttModel";
 import { LoggerService, TelemetryService } from "../domain/services";
+import { CommandHttpController } from "./controllers/CommandHttpController";
+// import { CommandHttpController } from "./CommandHttpController";
 
 export const router = Router();
 
-// Rutas de locks
+// Locks routes
 router.get("/locks", locksController.getAll);
 router.get("/locks/:lockId", locksController.getById);
 router.post("/locks/:lockId/lock", locksController.lock);
@@ -14,17 +16,17 @@ router.post("/locks/:lockId/unlock", locksController.unlock);
 router.get("/locks/:lockId/status/:reqId", locksController.getCommandStatus);
 router.get("/locks/:lockId/events", locksController.getEvents);
 
-// Rutas de telemetría
+// New command endpoints
+router.post("/commands/:lockId", CommandHttpController.publish);
+router.get("/commands/status/:commandId", CommandHttpController.getStatus);
+
+// Telemetry routes
 router.get("/telemetry", async (req, res) => {
     try {
         const { stationId, controllerId, lockId, limit } = req.query;
-
         if (!stationId || !controllerId || !lockId) {
-            return res.status(400).json({
-                error: "stationId, controllerId y lockId son requeridos en query params"
-            });
+            return res.status(400).json({ error: "stationId, controllerId y lockId son requeridos en query params" });
         }
-
         const parsedTopic: ParsedTopic = {
             stationId: stationId as string,
             controllerId: controllerId as string,
@@ -32,23 +34,12 @@ router.get("/telemetry", async (req, res) => {
             action: "telemetry",
             hasLocks: true,
         };
-
         const service = new TelemetryService(parsedTopic);
         const limitNum = limit ? parseInt(limit as string, 10) : undefined;
         const telemetry = await service.findAll(limitNum);
-
-        return res.json({
-            stationId,
-            controllerId,
-            lockId,
-            count: telemetry.length,
-            data: telemetry,
-        });
+        return res.json({ stationId, controllerId, lockId, count: telemetry.length, data: telemetry });
     } catch (error: any) {
-        return res.status(500).json({
-            error: "Error al obtener telemetría",
-            message: error.message,
-        });
+        return res.status(500).json({ error: "Error al obtener telemetría", message: error.message });
     }
 });
 
@@ -56,13 +47,9 @@ router.get("/telemetry/:telemetryId", async (req, res) => {
     try {
         const { stationId, controllerId, lockId } = req.query;
         const { telemetryId } = req.params;
-
         if (!stationId || !controllerId || !lockId) {
-            return res.status(400).json({
-                error: "stationId, controllerId y lockId son requeridos en query params"
-            });
+            return res.status(400).json({ error: "stationId, controllerId y lockId son requeridos en query params" });
         }
-
         const parsedTopic: ParsedTopic = {
             stationId: stationId as string,
             controllerId: controllerId as string,
@@ -70,58 +57,35 @@ router.get("/telemetry/:telemetryId", async (req, res) => {
             action: "telemetry",
             hasLocks: true,
         };
-
         const service = new TelemetryService(parsedTopic);
         const telemetry = await service.findById(telemetryId);
-
-        if (!telemetry) {
-            return res.status(404).json({ message: "Telemetría no encontrada" });
-        }
-
+        if (!telemetry) return res.status(404).json({ message: "Telemetría no encontrada" });
         return res.json(telemetry);
     } catch (error: any) {
-        return res.status(500).json({
-            error: "Error al obtener telemetría",
-            message: error.message,
-        });
+        return res.status(500).json({ error: "Error al obtener telemetría", message: error.message });
     }
 });
 
-// Rutas de logs
+// Logs routes
 router.get("/logs", async (req, res) => {
     try {
         const { stationId, controllerId, lockId, limit } = req.query;
-
         if (!stationId || !controllerId || !lockId) {
-            return res.status(400).json({
-                error: "stationId, controllerId y lockId son requeridos en query params"
-            });
+            return res.status(400).json({ error: "stationId, controllerId y lockId son requeridos en query params" });
         }
-
         const parsedTopic: ParsedTopic = {
             stationId: stationId as string,
             controllerId: controllerId as string,
             lockId: lockId as string,
-            action: "telemetry", // La acción no importa para logs, siempre se guardan en "logs"
+            action: "telemetry",
             hasLocks: true,
         };
-
         const service = new LoggerService(parsedTopic);
         const limitNum = limit ? parseInt(limit as string, 10) : undefined;
         const logs = await service.findAll(limitNum);
-
-        return res.json({
-            stationId,
-            controllerId,
-            lockId,
-            count: logs.length,
-            data: logs,
-        });
+        return res.json({ stationId, controllerId, lockId, count: logs.length, data: logs });
     } catch (error: any) {
-        return res.status(500).json({
-            error: "Error al obtener logs",
-            message: error.message,
-        });
+        return res.status(500).json({ error: "Error al obtener logs", message: error.message });
     }
 });
 
@@ -129,46 +93,30 @@ router.get("/logs/:logId", async (req, res) => {
     try {
         const { stationId, controllerId, lockId } = req.query;
         const { logId } = req.params;
-
         if (!stationId || !controllerId || !lockId) {
-            return res.status(400).json({
-                error: "stationId, controllerId y lockId son requeridos en query params"
-            });
+            return res.status(400).json({ error: "stationId, controllerId y lockId son requeridos en query params" });
         }
-
         const parsedTopic: ParsedTopic = {
             stationId: stationId as string,
             controllerId: controllerId as string,
             lockId: lockId as string,
-            action: "telemetry", // La acción no importa para logs
+            action: "telemetry",
             hasLocks: true,
         };
-
         const service = new LoggerService(parsedTopic);
         const log = await service.findById(logId);
-
-        if (!log) {
-            return res.status(404).json({ message: "Log no encontrado" });
-        }
-
+        if (!log) return res.status(404).json({ message: "Log no encontrado" });
         return res.json(log);
     } catch (error: any) {
-        return res.status(500).json({
-            error: "Error al obtener log",
-            message: error.message,
-        });
+        return res.status(500).json({ error: "Error al obtener log", message: error.message });
     }
 });
 
-// Rutas legacy (mantener compatibilidad)
+// Legacy routes
 router.get("/controllers/:controllerId/locks", async (req, res) => {
     const { db } = await import("../infra/db");
     const { stationId } = req.query;
-
-    if (!stationId) {
-        return res.status(400).json({ error: "stationId requerido en query" });
-    }
-
+    if (!stationId) return res.status(400).json({ error: "stationId requerido en query" });
     const locksSnapshot = await db
         .collection("stations")
         .doc(stationId as string)
@@ -176,18 +124,10 @@ router.get("/controllers/:controllerId/locks", async (req, res) => {
         .doc(req.params.controllerId)
         .collection("locks")
         .get();
-
     const locks = locksSnapshot.docs.map((doc: any) => {
         const data = doc.data();
-        return {
-            lockId: doc.id,
-            last_state: data['last_state'],
-            last_battery: data['last_battery'],
-            last_rssi: data['last_rssi'],
-            position: data['position'],
-        };
+        return { lockId: doc.id, last_state: data['last_state'], last_battery: data['last_battery'], last_rssi: data['last_rssi'], position: data['position'] };
     });
-
     return res.json(locks);
 });
 
@@ -201,24 +141,13 @@ router.post("/stations/:stationId/controllers/:controllerId/locks/:lockId/:cmd",
 
 router.get("/commands/:reqId", async (req, res) => {
     const { db } = await import("../infra/db");
-
-    // Leer de commands_index para búsqueda rápida
     const commandIndexDoc = await db.collection("commands_index").doc(req.params.reqId).get();
-
-    if (!commandIndexDoc.exists) {
-        return res.status(404).json({ message: "Not found" });
-    }
-
+    if (!commandIndexDoc.exists) return res.status(404).json({ message: "Not found" });
     const indexData = commandIndexDoc.data()!;
     const stationId = indexData['station_id'];
     const controllerId = indexData['controller_id'];
     const lockId = indexData['lock_id'];
-
-    if (!stationId || !controllerId || !lockId) {
-        return res.status(404).json({ message: "Not found" });
-    }
-
-    // Obtener comando completo
+    if (!stationId || !controllerId || !lockId) return res.status(404).json({ message: "Not found" });
     const commandDoc = await db
         .collection("stations")
         .doc(stationId)
@@ -229,22 +158,12 @@ router.get("/commands/:reqId", async (req, res) => {
         .collection("commands")
         .doc(req.params.reqId)
         .get();
-
-    if (!commandDoc.exists) {
-        return res.status(404).json({ message: "Not found" });
-    }
-
+    if (!commandDoc.exists) return res.status(404).json({ message: "Not found" });
     const commandData = commandDoc.data()!;
-    return res.json({
-        req_id: commandDoc.id,
-        status: commandData['status'],
-        error_msg: commandData['error_msg'],
-        ts_requested: commandData['ts_requested'],
-        ts_resolved: commandData['ts_resolved'],
-    });
+    return res.json({ req_id: commandDoc.id, status: commandData['status'], error_msg: commandData['error_msg'], ts_requested: commandData['ts_requested'], ts_resolved: commandData['ts_resolved'] });
 });
 
-// Métricas Prometheus
+// Prometheus metrics
 router.get("/metrics", async (_req, res) => {
     res.set("Content-Type", register.contentType);
     res.end(await register.metrics());

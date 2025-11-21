@@ -39,7 +39,7 @@ export async function createPending(c: CreatePendingParams) {
     };
 
     // Escribir en ambos lugares (comando y índice) usando transacción
-    await db.runTransaction(async (transaction) => {
+    await db.runTransaction(async (transaction: any) => {
         transaction.set(commandRef, commandData);
         transaction.set(indexRef, {
             station_id: c.stationId,
@@ -80,7 +80,7 @@ export async function resolve(
         .doc(reqId);
 
     // Actualizar ambos (comando y índice) usando transacción
-    await db.runTransaction(async (transaction) => {
+    await db.runTransaction(async (transaction: any) => {
         transaction.update(commandRef, {
             status,
             ts_resolved: ts,

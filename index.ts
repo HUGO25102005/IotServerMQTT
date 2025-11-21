@@ -3,6 +3,7 @@
 
 import Main from "./src/main";
 import { logger } from "./src/config/logger";
+import "./src/server"; // Iniciar servidor HTTP
 
 /**
  * Función principal que inicia la aplicación

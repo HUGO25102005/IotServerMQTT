@@ -38,11 +38,12 @@ class CommandsController implements IMqttMessageHandler {
             // Solo se guarda el registro del comando recibido
             logger.debug({ parsedTopic }, "command_received");
 
-            // Si es una respuesta de comando (tiene reqId y result), resolver el comando
-            if (data.reqId && data.result) {
+            // Si es una respuesta de comando (tiene reqId y result/status), resolver el comando
+            const result = data.result || data.status;
+            if (data.reqId && result) {
                 await service.resolve(
                     data.reqId,
-                    data.result,
+                    result,
                     data.ts || Date.now(),
                     data.error || null
                 );
@@ -84,6 +85,7 @@ class CommandsController implements IMqttMessageHandler {
 
             const service = new CommandsService(parsedTopic);
 
+            // console.log({ parsedTopic });
             // Crear comando pendiente en Firestore
             await service.createPending({
                 reqId,
@@ -93,10 +95,13 @@ class CommandsController implements IMqttMessageHandler {
             });
 
             // Construir el topic para publicar
-            const publishTopic = `stations / ${params.stationId} /controller/${params.controllerId} /locks/${params.lockId} /command/set`;
+            const publishTopic = `cycloconnect/stations/${params.stationId}/controller/${params.controllerId}/locks/${params.lockId}/command/set`;
 
+            // console.log({ publishTopic });
             // Publicar el comando
             const payload = JSON.stringify({ ts, cmd: params.cmd, reqId, timeoutMs: params.timeoutMs });
+            
+            console.log({ publishTopic, payload });
             mqttClient.publish(publishTopic, payload, { qos: 1 });
 
             // Configurar timeout para resolver el comando si no hay respuesta

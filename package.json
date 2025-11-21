@@ -8,7 +8,9 @@
         "dev": "ts-node-dev --respawn --transpile-only --ignore-watch node_modules --ignore-watch dist index.ts",
         "dev:nodemon": "nodemon",
         "build": "tsc",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "sendCommand": "ts-node src/scripts/sendCommand.ts"
+
     },
     "keywords": [],
     "author": "",

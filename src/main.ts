@@ -48,6 +48,7 @@ class Main {
         this.handlerRegistry.register("status", new StatusController());
         this.handlerRegistry.register("config", new ConfigController());
         this.handlerRegistry.register("command", new CommandsController());
+        this.handlerRegistry.register("ack", new CommandsController());
         // Nota: logs no está en el registry porque usa LoggerController del http/controllers
 
         const actions = this.handlerRegistry.getRegisteredActions();
@@ -76,6 +77,7 @@ class Main {
 
         mqttClient.on("message", async (topic, payload) => {
             // console.log({ "topic": topic });
+            // console.log({ topic, payload })
             await this.handleMqttMessage(topic, payload);
         });
 
