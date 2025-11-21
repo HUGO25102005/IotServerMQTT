@@ -15,6 +15,37 @@ export class CommandHttpController {
      * Publish a lock command.
      * Expected body: { stationId, controllerId, action: 'open' | 'close', requestedBy }
      */
+    // const mockReq = {
+    //         params: {
+    //             lockId: LOCK_ID
+    //         },
+    //         body: {
+    //             stationId: STATION_ID,
+    //             controllerId: CONTROLLER_ID,
+    //             action: 'open',
+    //             requestedBy: 'tester'
+    //         }
+    //     } as unknown as Request;
+    
+    //     // Mock Express Response
+    //     const mockRes = {
+    //         status: function (code: number) {
+    //             console.log(`[HTTP Mock] Status set to ${code}`);
+    //             return this;
+    //         },
+    //         json: function (data: any) {
+    //             console.log('[HTTP Mock] JSON response:', data);
+    //             if (data.commandId) {
+    //                 // If we got a commandId, start checking status
+    //                 setTimeout(() => checkStatus(data.commandId), 2000);
+    //             } else if (data.error) {
+    //                 console.error('[TEST] Controller returned error:', data.error);
+    //                 process.exit(1);
+    //             }
+    //             return this;
+    //         }
+    //     } as unknown as Response;
+    
     static async publish(req: Request, res: Response) {
         try {
             const { lockId } = req.params;
