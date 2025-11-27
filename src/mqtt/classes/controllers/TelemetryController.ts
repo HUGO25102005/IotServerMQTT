@@ -24,28 +24,36 @@ class TelemetryController implements IMqttMessageHandler {
         messageStr: string
     ): Promise<void> {
         try {
+            logger.info({ parsedTopic }, "[Telemetry] Handler iniciado");
+
             // Reconstruir el topic string para el modelo (temporal hasta que refactoricemos los modelos)
             const topic = this.reconstructTopic(parsedTopic);
+            logger.info({ topic }, "[Telemetry] Topic reconstruido");
 
             // Crear modelo MQTT para validación
             const mqttModel = new TelemetryModel(topic, payload, messageStr);
+            logger.info({ payload }, "[Telemetry] Modelo creado");
 
             // Validar el modelo
             if (!mqttModel.validate()) {
-                logger.warn({ parsedTopic }, "telemetry_validation_failed");
+                logger.warn({ parsedTopic, payload }, "[Telemetry] Validación fallida");
                 return;
             }
 
+            logger.info({}, "[Telemetry] Modelo validado correctamente");
+
             // Obtener datos para Firestore
             const data = mqttModel.getDataForFirestore();
+            logger.info({ data }, "[Telemetry] Datos preparados para Firestore");
 
             // Guardar usando el servicio de dominio
             const service = new TelemetryService(parsedTopic);
+            logger.info({}, "[Telemetry] Servicio creado, llamando save()");
             await service.save(data);
 
-            logger.debug({ parsedTopic }, "telemetry_handled");
+            logger.info({ parsedTopic }, "[Telemetry] telemetry_handled");
         } catch (error) {
-            logger.error({ error, parsedTopic }, "telemetry_handle_failed");
+            logger.error({ error, parsedTopic }, "[Telemetry] telemetry_handle_failed");
             throw error;
         }
     }

@@ -23,16 +23,22 @@ class TelemetryService {
     public async save(data: any): Promise<void> {
         const { stationId, controllerId, lockId } = this.model.getParsedTopic();
 
+        logger.info({ stationId, controllerId, lockId, data }, "[TelemetryService] save() iniciado");
+
         if (!lockId || typeof data?.ts !== "number" || !["locked", "unlocked"].includes(data?.state)) {
-            logger.warn({ stationId, controllerId, lockId }, "telemetry_invalid");
+            logger.warn({ stationId, controllerId, lockId, data }, "[TelemetryService] telemetry_invalid");
             return;
         }
+
+        logger.info({ stationId, controllerId, lockId }, "[TelemetryService] Validación pasada");
 
         // Deduplicación por seq si viene
         if (typeof data.seq === "number") {
             const lastSeq = await getLastSeq(stationId, controllerId, lockId);
+            logger.info({ lastSeq, currentSeq: data.seq }, "[TelemetryService] Verificando duplicados");
+
             if (lastSeq !== undefined && data.seq <= lastSeq) {
-                logger.debug({ stationId, controllerId, lockId, seq: data.seq, lastSeq }, "telemetry_duplicate_dropped");
+                logger.info({ stationId, controllerId, lockId, seq: data.seq, lastSeq }, "[TelemetryService] telemetry_duplicate_dropped");
 
                 // Guardar log del duplicado detectado para historial
                 // Usa datos ya formateados (data viene formateado desde el modelo MQTT)
@@ -58,7 +64,8 @@ class TelemetryService {
         }
 
         try {
-            // console.log({ "data de telemetry desde http save": data });
+            logger.info({}, "[TelemetryService] Iniciando persistencia en Firestore");
+
             // Persistir detalle en la colección telemetry
             await this.model.create({
                 ts: data.ts,
@@ -69,8 +76,9 @@ class TelemetryService {
                 seq: data.seq ?? null,
             });
 
-            // Actualizar snapshot del lock
+            logger.info({}, "[TelemetryService] Datos guardados en colección telemetry");
 
+            // Actualizar snapshot del lock
             await updateLockSnapshot({
                 stationId,
                 controllerId,
@@ -81,9 +89,11 @@ class TelemetryService {
                 rssi: data.rssi,
             });
 
-            logger.debug({ stationId, controllerId, lockId, seq: data.seq }, "telemetry_saved");
+            logger.info({}, "[TelemetryService] Lock snapshot actualizado");
+
+            logger.info({ stationId, controllerId, lockId, seq: data.seq }, "[TelemetryService] telemetry_saved ✅");
         } catch (error) {
-            logger.error({ error, stationId, controllerId, lockId }, "telemetry_save_failed");
+            logger.error({ error, stationId, controllerId, lockId }, "[TelemetryService] telemetry_save_failed");
             throw error;
         }
     }

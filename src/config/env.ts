@@ -9,6 +9,7 @@ export const env = cleanEnv(process.env, {
     PORT: num({ default: 3000 }),
     NODE_ENV: str({ default: "development", choices: ["development", "production", "test"] }),
     LOG_LEVEL: str({ default: "info", choices: ["error", "warn", "info", "debug"] }),
+    FRONTEND_URL: str({ default: "http://localhost:5173" }), // URL del frontend para CORS
 
     // Configuración MQTT
     MQTT_URL: str({ default: "mqtt://localhost:1883" }),

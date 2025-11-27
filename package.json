@@ -10,12 +10,12 @@
         "build": "tsc",
         "test": "echo \"Error: no test specified\" && exit 1",
         "sendCommand": "ts-node src/scripts/sendCommand.ts"
-
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "cors": "^2.8.5",
         "dotenv": "^17.2.2",
         "envalid": "^8.1.0",
         "express": "^5.1.0",
@@ -29,6 +29,7 @@
         "zod": "^4.1.9"
     },
     "devDependencies": {
+        "@types/cors": "^2.8.19",
         "@types/dotenv": "^6.1.1",
         "@types/express": "^5.0.3",
         "@types/mqtt": "^0.0.34",

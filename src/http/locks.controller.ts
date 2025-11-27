@@ -7,27 +7,33 @@ import { FieldPath } from "firebase-admin/firestore";
 export const locksController = {
     // Obtener estado de todos los locks
     async getAll(_req: Request, res: Response) {
+        console.log("getAllLocks");
         try {
-            const stationsSnapshot = await db.collection("stations").get();
+            // Usar collectionGroup para obtener TODOS los locks sin importar la jerarquía
+            // Esto funciona incluso si los documentos padre (stations/controllers) no existen
+            const locksSnapshot = await db.collectionGroup("locks").get();
+
+            console.log(`✅ Encontrados ${locksSnapshot.size} locks usando collectionGroup`);
+
             const allLocks: any[] = [];
 
-            for (const stationDoc of stationsSnapshot.docs) {
-                const stationId = stationDoc.id;
-                const controllersSnapshot = await stationDoc.ref.collection("controllers").get();
+            for (const lockDoc of locksSnapshot.docs) {
+                const lockData = lockDoc.data();
 
-                for (const controllerDoc of controllersSnapshot.docs) {
-                    const controllerData = controllerDoc.data();
-                    const locksSnapshot = await controllerDoc.ref.collection("locks").get();
+                // Extraer stationId y controllerId del path
+                // path format: stations/{stationId}/controllers/{controllerId}/locks/{lockId}
+                const pathParts = lockDoc.ref.path.split("/");
+                const stationId = pathParts[1];
+                const controllerId = pathParts[3];
 
-                    for (const lockDoc of locksSnapshot.docs) {
-                        allLocks.push({
-                            ...lockDoc.data(),
-                            id: lockDoc.id,
-                            station_id: stationId,
-                            controller_status: controllerData['last_status'],
-                        });
-                    }
-                }
+                console.log(`Lock encontrado: ${lockDoc.id} en ${lockDoc.ref.path}`);
+
+                allLocks.push({
+                    ...lockData,
+                    id: lockDoc.id,
+                    station_id: stationId,
+                    controller_id: controllerId,
+                });
             }
 
             // Ordenar por station_id y position

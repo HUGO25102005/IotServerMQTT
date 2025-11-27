@@ -113,7 +113,7 @@ class Main {
 
         // Verificar si es un topic de cycloconnect (formato diferente)
         if (topic.startsWith("cycloconnect/")) {
-            logger.debug({ topic }, "[MQTT] Mensaje recibido de cycloconnect (formato no estándar)");
+            logger.info({ topic }, "[MQTT] Mensaje recibido de cycloconnect (formato no estándar)");
             topic = topic.replace("cycloconnect/", "");
         }
 
@@ -122,7 +122,7 @@ class Main {
         const parsedTopic = tempModel.parseTopic();
         const action = parsedTopic.action;
 
-        logger.debug({
+        logger.info({
             topic,
             action,
             stationId: parsedTopic.stationId,
