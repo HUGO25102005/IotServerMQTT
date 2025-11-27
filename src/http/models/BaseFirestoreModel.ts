@@ -85,28 +85,7 @@ class BaseFirestoreModel {
             updated_at: FieldValue.serverTimestamp(),
         };
 
-        const firestorePath = docRef.path;
-        console.log(`[BaseFirestoreModel] 💾 Guardando en Firestore: ${firestorePath}`);
-        console.log(`[BaseFirestoreModel] 📦 Datos:`, JSON.stringify(dataToSave, null, 2));
-
-        try {
-            await docRef.set(dataToSave);
-            console.log(`[BaseFirestoreModel] ✅ Document guardado exitosamente en: ${firestorePath}`);
-
-            // Verificar que realmente se guardó
-            const savedDoc = await docRef.get();
-            if (savedDoc.exists) {
-                console.log(`[BaseFirestoreModel] ✅ Verificado: Document existe en Firestore`);
-            } else {
-                console.error(`[BaseFirestoreModel] ❌ ERROR: Document NO existe después de guardarlo!`);
-            }
-        } catch (error: any) {
-            console.error(`[BaseFirestoreModel] ❌ ERROR al guardar:`, error);
-            console.error(`[BaseFirestoreModel] Error code:`, error.code);
-            console.error(`[BaseFirestoreModel] Error message:`, error.message);
-            throw error;
-        }
-
+        await docRef.set(dataToSave);
         return docRef;
     }
 

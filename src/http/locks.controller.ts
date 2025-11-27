@@ -7,13 +7,10 @@ import { FieldPath } from "firebase-admin/firestore";
 export const locksController = {
     // Obtener estado de todos los locks
     async getAll(_req: Request, res: Response) {
-        console.log("getAllLocks");
         try {
             // Usar collectionGroup para obtener TODOS los locks sin importar la jerarquía
             // Esto funciona incluso si los documentos padre (stations/controllers) no existen
             const locksSnapshot = await db.collectionGroup("locks").get();
-
-            console.log(`✅ Encontrados ${locksSnapshot.size} locks usando collectionGroup`);
 
             const allLocks: any[] = [];
 
@@ -25,8 +22,6 @@ export const locksController = {
                 const pathParts = lockDoc.ref.path.split("/");
                 const stationId = pathParts[1];
                 const controllerId = pathParts[3];
-
-                console.log(`Lock encontrado: ${lockDoc.id} en ${lockDoc.ref.path}`);
 
                 allLocks.push({
                     ...lockData,
