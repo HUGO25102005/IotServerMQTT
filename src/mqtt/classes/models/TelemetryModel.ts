@@ -15,12 +15,28 @@ class TelemetryModel extends ObjectMqttModel {
 
     /**
      * Valida que el payload tenga los campos mínimos requeridos
-     * Puedes agregar más validaciones específicas aquí si es necesario
+     * Soporta formato antiguo (ts, state) y formato nuevo del dispositivo (timestamp o hora+fecha, servomotor)
      */
     public validate(): boolean {
-        // Por ahora solo validamos que el payload exista
-        // Puedes agregar validaciones más específicas según tus necesidades
-        return this.payload !== null && this.payload !== undefined;
+        if (!this.payload || typeof this.payload !== "object") {
+            return false;
+        }
+
+        // Formato nuevo del dispositivo: debe tener (timestamp O hora+fecha) Y servomotor.estado
+        const hasNewFormatTime =
+            typeof this.payload.timestamp === "number" ||
+            (typeof this.payload.hora === "string" && typeof this.payload.fecha === "string");
+
+        const hasNewFormat =
+            hasNewFormatTime &&
+            this.payload.servomotor?.estado;
+
+        // Formato antiguo: debe tener ts y state
+        const hasOldFormat =
+            typeof this.payload.ts === "number" &&
+            (this.payload.state === "locked" || this.payload.state === "unlocked");
+
+        return hasNewFormat || hasOldFormat;
     }
 
     /**

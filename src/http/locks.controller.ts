@@ -273,17 +273,21 @@ export const locksController = {
             const { lockId } = req.params;
             const limit = parseInt(req.query['limit'] as string) || 50;
 
+            // Obtener todos los eventos del collectionGroup
+            // y filtrar manualmente por lockId
             const eventsSnapshot = await db
                 .collectionGroup("events")
-                .where("lock_id", "==", lockId)
-                .orderBy("ts", "desc")
-                .limit(limit)
                 .get();
 
-            const events = eventsSnapshot.docs.map((doc: any) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            // Filtrar por lockId y ordenar
+            const events = eventsSnapshot.docs
+                .filter((doc: any) => doc.data().lock_id === lockId)
+                .map((doc: any) => ({
+                    id: doc.id,
+                    ...doc.data()
+                }))
+                .sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0))
+                .slice(0, limit);
 
             return res.json({
                 success: true,

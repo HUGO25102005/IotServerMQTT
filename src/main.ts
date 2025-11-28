@@ -8,6 +8,7 @@ import {
     StatusController,
     ConfigController,
     StateController,
+    DisplayController,
 } from "./mqtt/classes/controllers";
 import { ObjectMqttModel } from "./mqtt/classes/models";
 import { LoggerService } from "./domain/services";
@@ -49,6 +50,7 @@ class Main {
         this.handlerRegistry.register("config", new ConfigController());
         this.handlerRegistry.register("command", new CommandsController());
         this.handlerRegistry.register("ack", new CommandsController());
+        this.handlerRegistry.register("display", new DisplayController());
         // Nota: logs no está en el registry porque usa LoggerController del http/controllers
 
         const actions = this.handlerRegistry.getRegisteredActions();

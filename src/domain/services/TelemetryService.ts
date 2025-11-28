@@ -19,12 +19,56 @@ class TelemetryService {
     /**
      * Guarda un registro de telemetría
      * Incluye validación, deduplicación por seq y actualización del snapshot del lock
+     * Soporta tanto el formato antiguo (ts, state) como el nuevo formato del dispositivo
      */
     public async save(data: any): Promise<void> {
         const { stationId, controllerId, lockId } = this.model.getParsedTopic();
 
-        if (!lockId || typeof data?.ts !== "number" || !["locked", "unlocked"].includes(data?.state)) {
+        // Mapear datos del dispositivo al formato esperado
+        let ts: number;
+        let state: "locked" | "unlocked";
+
+        // Formato nuevo del dispositivo: tiene timestamp o hora+fecha, y servomotor.estado
+        if (data?.servomotor?.estado) {
+            // Obtener timestamp
+            if (typeof data.timestamp === "number") {
+                ts = data.timestamp;
+            } else if (data.hora && data.fecha) {
+                // Convertir hora y fecha a timestamp
+                // Formato esperado: hora: "HH:MM:SS", fecha: "DD/MM/YYYY"
+                const [day, month, year] = data.fecha.split('/');
+                const [hour, minute, second] = data.hora.split(':');
+                const dateObj = new Date(year, month - 1, day, hour, minute, second);
+                ts = dateObj.getTime();
+            } else {
+                // Si no hay timestamp ni hora/fecha, usar el tiempo actual
+                ts = Date.now();
+            }
+
+            // Mapear estado del servomotor a locked/unlocked
+            const estadoServomotor = data.servomotor.estado.toLowerCase();
+            if (estadoServomotor === "libre") {
+                state = "unlocked";
+            } else if (estadoServomotor === "ocupado") {
+                state = "locked";
+            } else {
+                logger.warn({ stationId, controllerId, lockId, estadoServomotor }, "telemetry_invalid_servo_state");
+                return;
+            }
+        }
+        // Formato antiguo: tiene ts y state directamente
+        else if (typeof data?.ts === "number" && ["locked", "unlocked"].includes(data?.state)) {
+            ts = data.ts;
+            state = data.state;
+        }
+        // Formato inválido
+        else {
             logger.warn({ stationId, controllerId, lockId, data }, "telemetry_invalid");
+            return;
+        }
+
+        if (!lockId) {
+            logger.warn({ stationId, controllerId, lockId, data }, "telemetry_missing_lockid");
             return;
         }
 
@@ -60,13 +104,22 @@ class TelemetryService {
 
         try {
             // Persistir detalle en la colección telemetry
+            // Incluir campos tanto del formato nuevo como del antiguo
             await this.model.create({
-                ts: data.ts,
-                state: data.state,
+                ts,
+                state,
+                // Campos del formato antiguo (si existen)
                 battery: data.battery ?? null,
                 rssi: data.rssi ?? null,
                 fw: data.fw ?? null,
                 seq: data.seq ?? null,
+                // Campos del formato nuevo del dispositivo (si existen)
+                lock_id: data.lock_id ?? null,
+                sensor_ultrasonico: data.sensor_ultrasonico ?? null,
+                servomotor: data.servomotor ?? null,
+                fotoresistencia: data.fotoresistencia ?? null,
+                hora: data.hora ?? null,
+                fecha: data.fecha ?? null,
             });
 
             // Actualizar snapshot del lock
@@ -74,13 +127,13 @@ class TelemetryService {
                 stationId,
                 controllerId,
                 lockId,
-                state: data.state,
+                state,
                 seq: data.seq,
                 battery: data.battery,
                 rssi: data.rssi,
             });
 
-            logger.debug({ stationId, controllerId, lockId, seq: data.seq }, "telemetry_saved");
+            logger.debug({ stationId, controllerId, lockId, seq: data.seq, state }, "telemetry_saved");
         } catch (error) {
             logger.error({ error, stationId, controllerId, lockId }, "telemetry_save_failed");
             throw error;

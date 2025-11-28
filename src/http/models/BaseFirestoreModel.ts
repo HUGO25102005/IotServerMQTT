@@ -52,7 +52,11 @@ class BaseFirestoreModel {
         if (this.collectionName === "status" || this.collectionName === "config") {
             return null;
         }
-        return this.getBaseCollectionPath().collection(this.collectionName);
+
+        const basePath = this.getBaseCollectionPath();
+        const collectionPath = basePath.collection(this.collectionName);
+
+        return collectionPath;
     }
 
     /**
