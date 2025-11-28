@@ -8,7 +8,7 @@ interface CreateTelemetryData {
     ts: number;
     state: 'locked' | 'unlocked';
     battery?: number;
-    rssi?: number;
+    rssi?: number;  
     fw?: string;
     seq?: number;
 }
