@@ -54,7 +54,7 @@ export async function createPending(c: CreatePendingParams) {
 
 export async function resolve(
     reqId: string,
-    result: "ok" | "error" | "timeout",
+    result: "ok" | "error" | "timeout" | "success",
     ts: number,
     errorMsg?: string
 ) {
@@ -66,8 +66,15 @@ export async function resolve(
     }
 
     const indexData = indexDoc.data()!;
+
+    // Si el comando ya está resuelto (no está en pending), no hacer nada
+    // Esto evita que el timeout sobrescriba una resolución exitosa
+    if (indexData['status'] !== 'pending') {
+        return; // Ya fue resuelto, ignorar
+    }
+
     const status =
-        result === "ok" ? "success" : result === "timeout" ? "timeout" : "error";
+        result === "ok" || result === "success" ? "success" : result === "timeout" ? "timeout" : "error";
 
     const commandRef = db
         .collection("stations")

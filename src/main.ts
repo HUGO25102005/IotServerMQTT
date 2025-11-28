@@ -131,6 +131,12 @@ class Main {
         }, "[MQTT] Mensaje recibido");
 
         try {
+            // Ignorar comandos salientes (publicados por el servidor)
+            if (action === "set") {
+                logger.debug({ topic, action }, "[MQTT] Ignorando comando saliente (publicado por este servidor)");
+                return;
+            }
+
             // Caso especial: logs usa LoggerService del domain/services
             if (action === "logs") {
                 const service = new LoggerService(parsedTopic);

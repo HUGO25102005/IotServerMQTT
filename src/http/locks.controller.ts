@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { logger } from "../config/logger";
 import { sendCommand } from "../domain/services/command.services";
 import { db } from "../infra/db";
-import { FieldPath } from "firebase-admin/firestore";
 
 export const locksController = {
     // Obtener estado de todos los locks
@@ -57,20 +56,13 @@ export const locksController = {
         try {
             const { lockId } = req.params;
 
-            const locksSnapshot = await db
-                .collectionGroup("locks")
-                .where(FieldPath.documentId(), "==", lockId)
-                .limit(1)
-                .get();
+            // Obtener todos los locks y filtrar por ID
+            // FieldPath.documentId() no funciona bien con collectionGroup
+            const locksSnapshot = await db.collectionGroup("locks").get();
 
-            if (locksSnapshot.empty) {
-                return res.status(404).json({
-                    success: false,
-                    error: "Lock no encontrado"
-                });
-            }
+            // Buscar el lock con el ID específico
+            const lockDoc = locksSnapshot.docs.find((doc: any) => doc.id === lockId);
 
-            const lockDoc = locksSnapshot.docs[0];
             if (!lockDoc) {
                 return res.status(404).json({
                     success: false,

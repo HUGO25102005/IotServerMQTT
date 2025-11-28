@@ -23,38 +23,44 @@ class CommandsController implements IMqttMessageHandler {
         messageStr: string
     ): Promise<void> {
         try {
+            logger.info({ parsedTopic, payload }, "[CommandsController] Mensaje ACK recibido");
+
             const topic = this.reconstructTopic(parsedTopic);
             const mqttModel = new CommandsModel(topic, payload, messageStr);
 
             if (!mqttModel.validate()) {
-                logger.warn({ parsedTopic }, "command_validation_failed");
+                logger.warn({ parsedTopic, payload }, "[CommandsController] Validación fallida");
                 return;
             }
 
             const data = mqttModel.getDataForFirestore();
+            logger.info({ data }, "[CommandsController] Datos del ACK preparados");
+
             // Guardar comando usando el servicio de dominio
             const service = new CommandsService(parsedTopic);
-            // Nota: Los comandos MQTT recibidos no necesitan crear pending
-            // Solo se guarda el registro del comando recibido
-            logger.debug({ parsedTopic }, "command_received");
 
             // Si es una respuesta de comando (tiene reqId y result/status), resolver el comando
             const result = data.result || data.status;
             if (data.reqId && result) {
+                logger.info({ reqId: data.reqId, result }, "[CommandsController] Resolviendo comando con ACK");
+
                 await service.resolve(
                     data.reqId,
                     result,
                     data.ts || Date.now(),
                     data.error || null
                 );
+
+                logger.info({ reqId: data.reqId }, "[CommandsController] ✅ Comando resuelto exitosamente");
             } else {
+                logger.warn({ data }, "[CommandsController] ACK sin reqId o result - guardando solo el mensaje");
                 // Si no, solo guardar el mensaje
                 await service.getModel().create(data);
             }
 
             logger.debug({ parsedTopic }, "command_handled");
         } catch (error) {
-            logger.error({ error, parsedTopic }, "command_handle_failed");
+            logger.error({ error, parsedTopic }, "[CommandsController] Error al manejar ACK");
             throw error;
         }
     }
@@ -100,7 +106,7 @@ class CommandsController implements IMqttMessageHandler {
             // console.log({ publishTopic });
             // Publicar el comando
             const payload = JSON.stringify({ ts, cmd: params.cmd, reqId, timeoutMs: params.timeoutMs });
-            
+
             console.log({ publishTopic, payload });
             mqttClient.publish(publishTopic, payload, { qos: 1 });
 
